@@ -172,8 +172,18 @@ pub(crate) fn is_permanent_provider_error(error: &str) -> bool {
     }
     if crate::agent::club::error_indicates_auth_failed(error)
         || crate::agent::club::error_indicates_quota_exhausted(error)
+        || crate::agent::club::error_indicates_refusal(error)
+        || crate::agent::club::error_indicates_gateway_stop(error)
     {
         return true;
+    }
+    // A reservation refusal is correctable: the turn makes the request
+    // smaller and asks again. Calling it permanent would strand a run with
+    // credit left. It is never replayed unchanged either: the failure
+    // verdict for it says no replay, and the turn's own correction is the
+    // only thing that sends again.
+    if crate::agent::club::error_indicates_reservation_exceeds(error) {
+        return false;
     }
     let lower = error.to_ascii_lowercase();
     rejected_request_text(&lower) || provider_error_status(&lower).is_some_and(is_client_fault)

@@ -833,6 +833,30 @@ impl App {
             }
             return;
         }
+        // A podrace loop that is between iterations owns the work. A plain message
+        // typed now is guidance for it: recorded as a steer, which also wakes a loop
+        // sitting out its idle wait. Started as an ordinary turn it would open a side
+        // conversation that knows none of the loop's work, and the loop would not hear it.
+        if self.loop_waiting_for_next_iteration()
+            && matches!(&parsed, ParsedInput::Message(msg) if msg.attachments.is_empty())
+        {
+            let ParsedInput::Message(msg) = parsed else {
+                unreachable!("matched a plain message above");
+            };
+            self.input.clear();
+            self.cursor = 0;
+            self.reset_composer_history_recall();
+            self.composer_selection_anchor = None;
+            self.messages.push(Message::new(
+                Role::User,
+                format!("[steer · next iteration] {raw}"),
+            ));
+            self.loop_note_steer(&msg.content);
+            // A repeat of an earlier note is folded, not recorded twice. It still wakes
+            // the loop: the operator spoke, so the next iteration is due.
+            self.loop_ctl.wake_at = Some(std::time::Instant::now());
+            return;
+        }
         let tutor_draft = if matches!(parsed, ParsedInput::AskQuestion(_)) {
             self.tutor_draft.take()
         } else {
@@ -2107,6 +2131,18 @@ impl App {
             requested_route,
             None,
         ));
+    }
+
+    /// A podrace loop is live and between iterations: nothing is in flight and its next
+    /// iteration has not started (it may be sitting out an idle wait). Other loops keep
+    /// the composer for ordinary turns while they wait.
+    pub(crate) fn loop_waiting_for_next_iteration(&self) -> bool {
+        self.loop_ctl.podrace
+            && self.loop_ctl.status == crate::drive::loop_ctl::LoopStatus::Running
+            && !self.loop_ctl.awaiting_turn
+            && self.thinking.is_none()
+            && self.bg_job.is_none()
+            && self.loop_pending.is_none()
     }
 
     /// Queue a message typed while the flight slot is busy as a mid-run steer:

@@ -8,6 +8,9 @@ const EXPERIMENT_TOKENS: usize = 32_768;
 const EXPERIMENT_SECONDS: u64 = 300;
 
 fn experiment_due(st: &LoopState) -> bool {
+    if !crate::agent::harness::env_flag("ANGEL_LOOP_RECOVERY_EXPERIMENTS", true) {
+        return false;
+    }
     (st.podrace && st.iteration >= DEFAULT_LOOP_FIRST_CANDIDATE_ITERS) || stall_limit_reached(st)
 }
 

@@ -318,3 +318,54 @@ fn launch_draft_is_composer_only_and_preserves_exact_unicode() {
     assert!(app.pending_turn.is_none());
     assert!(app.thinking.is_none());
 }
+
+#[test]
+fn a_launch_can_name_its_goal_and_its_loop_and_run_unattended() {
+    let launch = parse(&argv(&[
+        "--goal",
+        "win the race",
+        "--loop",
+        "podrace now read BRIEF.md",
+        "--unattended",
+    ]))
+    .unwrap()
+    .unwrap();
+    assert_eq!(launch.goal.as_deref(), Some("win the race"));
+    assert_eq!(launch.loop_start.as_deref(), Some("podrace now read BRIEF.md"));
+    assert!(launch.unattended);
+    // `--loop` first is an interactive launch now, not a refused machine mode.
+    let first = parse(&argv(&["--loop", "podrace now x"])).unwrap().unwrap();
+    assert_eq!(first.loop_start.as_deref(), Some("podrace now x"));
+    assert!(!first.unattended && first.goal.is_none());
+
+    for args in [
+        vec!["--unattended"],
+        vec!["--goal", "g", "--unattended"],
+        vec!["--loop"],
+        vec!["--loop", "  "],
+        vec!["--goal", "a", "--goal", "b"],
+        vec!["--loop", "a", "--loop", "b"],
+        vec!["--loop", "a", "--unattended", "--unattended"],
+        vec!["--prompt", "a", "--loop", "b"],
+        vec!["--draft", "a", "--goal", "b"],
+        vec!["--tools"],
+        vec!["--tools", "   "],
+        vec!["--tools", "shell", "--tools", "write_file"],
+    ] {
+        assert!(parse(&argv(&args)).is_err(), "{args:?}");
+    }
+
+    let with_tools = parse(&argv(&[
+        "--tools",
+        "shell, read_file, write_file",
+        "--loop",
+        "podrace now go",
+        "--unattended",
+    ]))
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        with_tools.tools.as_deref(),
+        Some("shell,read_file,write_file")
+    );
+}

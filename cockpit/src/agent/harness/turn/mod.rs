@@ -7,6 +7,7 @@ mod classify;
 mod competition;
 mod dispatch;
 mod effort_leg;
+mod number_sweep;
 mod provider_failure;
 mod silence_guard;
 mod reasoning;
@@ -117,6 +118,7 @@ pub(crate) enum TurnStopReason {
     CaptureFailure,
     CheckpointFailure,
     ProviderError,
+    Declined,
     NeedsPro,
 }
 
@@ -132,6 +134,7 @@ impl TurnStopReason {
             Self::CaptureFailure => "capture_failure",
             Self::CheckpointFailure => "checkpoint_failure",
             Self::ProviderError => "provider_error",
+            Self::Declined => "declined",
             Self::NeedsPro => "needs_pro",
         }
     }
@@ -169,7 +172,8 @@ impl TurnStopReason {
             Self::ExecutionBlocked
             | Self::CaptureFailure
             | Self::CheckpointFailure
-            | Self::ProviderError => flags(false, false, false),
+            | Self::ProviderError
+            | Self::Declined => flags(false, false, false),
             Self::IdleTimeout => None,
         }
     }
@@ -1351,17 +1355,19 @@ fn run_turn_tiered(
     let mut loops = book::l_loops::Loops::from_env();
     let toolcall_scavenge = env_flag("ANGEL_TOOLCALL_SCAVENGE", false);
     let history_cap = env_usize("ANGEL_HISTORY_MAX_MSGS", 0);
+    let context_budget = env_usize("ANGEL_CONTEXT_BUDGET_TOKENS", 0);
+    let compact_keep = env_usize("ANGEL_COMPACT_KEEP_RECENT", 12).max(2);
+    let compact_keep_token_target = env_usize("ANGEL_COMPACT_KEEP_RECENT_TOKENS", 20_000);
+    let mut effective_budget = compaction_budget(club, context_budget);
     let rolling_rewrite_hops = if std::env::var_os("ANGEL_ROLLING_REWRITE_HOPS").is_none()
-        && club.provider_compaction_budget().is_some()
+        && (club.provider_compaction_budget().is_some()
+            || effective_budget == 0
+            || club.prompt_cache_capable())
     {
         0
     } else {
         env_usize("ANGEL_ROLLING_REWRITE_HOPS", 12)
     };
-    let context_budget = env_usize("ANGEL_CONTEXT_BUDGET_TOKENS", 0);
-    let compact_keep = env_usize("ANGEL_COMPACT_KEEP_RECENT", 12).max(2);
-    let compact_keep_token_target = env_usize("ANGEL_COMPACT_KEEP_RECENT_TOKENS", 20_000);
-    let mut effective_budget = compaction_budget(club, context_budget);
     let mut compact_keep_tokens = if compact_keep_token_target == 0 {
         0
     } else {
@@ -1476,18 +1482,23 @@ fn run_turn_tiered(
     let glm_last_hop_answered = std::cell::Cell::new(false);
     let mut green_verify_achieved = false;
     let mut green_verify_nudge_emitted = false;
-    let post_edit_review = book::d3456_advisories::post_edit_review_enabled();
+    let book_cues_enabled = env_flag("ANGEL_BOOK_CUES", true);
+    let post_edit_review = book_cues_enabled && book::d3456_advisories::post_edit_review_enabled();
     let mut post_edit_logic_reviewed = false;
     let mut weak_verification_pending = false;
     let mut weak_verification_told = false;
     let mut mutation_thrash = book::d3456_advisories::MutationThrash::default();
     let mut peripheral_fanout = book::d3456_advisories::PeripheralFanout::default();
-    let first_write_limit = book::d3456_advisories::first_write_limit();
-    let no_edit_guard = book::d3456_advisories::no_edit_guard_armed();
+    let first_write_limit = if book_cues_enabled {
+        book::d3456_advisories::first_write_limit()
+    } else {
+        0
+    };
+    let no_edit_guard = book_cues_enabled && book::d3456_advisories::no_edit_guard_armed();
     let mut prewrite_calls = 0usize;
     let mut first_write_attempted = false;
     let mut first_write_nudge_emitted = false;
-    let final_mile_hops = if research_turn {
+    let final_mile_hops = if research_turn || !book_cues_enabled {
         0
     } else {
         env_usize(
@@ -1514,6 +1525,7 @@ fn run_turn_tiered(
     let mut failed_checks = 0usize;
     let mut red_seen = effort_leg::RedSeen::default();
     let mut silence = silence_guard::SilenceGuard::default();
+    let mut number_sweep = number_sweep::NumberSweep::default();
     let task_wall_secs = if turn_budget > 0 {
         turn_budget
     } else {
@@ -2244,45 +2256,67 @@ fn run_turn_tiered(
             && rolling_rewrite_hops > 0
             && deferred_rewrite_hops.get() >= rolling_rewrite_hops.max(4);
         let rolling_rewrite_min_tokens = env_usize("ANGEL_ROLLING_REWRITE_MIN_TOKENS", 24_000);
-        let rolling_rewrite_min_tokens = if rolling_rewrite_min_tokens > 0 {
+        let rolling_rewrite_min_tokens = if rolling_rewrite_min_tokens > 0 && effective_budget > 0 {
             rolling_rewrite_min_tokens.min(effective_budget / 6)
         } else {
-            0
+            rolling_rewrite_min_tokens
         };
         let rolling_flush =
             rolling_flush && hist_tok + cached_tool_schema_tokens >= rolling_rewrite_min_tokens;
-        if cache_stable
-            && (rolling_flush
-                || hop_breakers.iter().any(|b| {
-                    matches!(
-                        *b,
-                        "compaction splice" | "sync compaction" | "history prune"
-                    )
-                }))
-        {
-            let aged = age_tool_results_at_boundary(history);
-            let shrunk = maybe_shrink_tool_arguments(history);
-            let deduped = maybe_dedupe_inspection_results(history);
-            aged_inspection_results.set(aged_inspection_results.get().saturating_add(aged.results));
-            aged_inspection_bytes_saved.set(
-                aged_inspection_bytes_saved
-                    .get()
-                    .saturating_add(aged.bytes_saved),
-            );
-            tool_argument_shrinks.set(tool_argument_shrinks.get().saturating_add(shrunk.calls));
-            tool_argument_bytes_saved.set(
-                tool_argument_bytes_saved
-                    .get()
-                    .saturating_add(shrunk.bytes_saved),
-            );
-            duplicate_inspection_results =
-                duplicate_inspection_results.saturating_add(deduped.results);
-            duplicate_inspection_bytes_saved =
-                duplicate_inspection_bytes_saved.saturating_add(deduped.bytes_saved);
-            hist_tokens.recompute(history);
-            deferred_rewrite_hops.set(0);
-            if rolling_flush {
-                hop_breakers.push("rolling boundary flush");
+        let boundary_already_broken = hop_breakers.iter().any(|b| {
+            matches!(
+                *b,
+                "compaction splice" | "sync compaction" | "history prune"
+            )
+        });
+        if cache_stable && (rolling_flush || boundary_already_broken) {
+            let min_saved_bytes = if boundary_already_broken || rolling_rewrite_min_tokens == 0 {
+                0
+            } else {
+                env_usize("ANGEL_ROLLING_REWRITE_MIN_SAVED_BYTES", 16_384) as u64
+            };
+            let mut candidate = if min_saved_bytes > 0 {
+                Some(history.clone())
+            } else {
+                None
+            };
+            let target_history = candidate.as_mut().unwrap_or(history);
+            let aged = age_tool_results_at_boundary(target_history);
+            let shrunk = maybe_shrink_tool_arguments(target_history);
+            let deduped = maybe_dedupe_inspection_results(target_history);
+            let total_saved = aged
+                .bytes_saved
+                .saturating_add(shrunk.bytes_saved)
+                .saturating_add(deduped.bytes_saved);
+            if total_saved >= min_saved_bytes {
+                if let Some(updated) = candidate {
+                    *history = updated;
+                }
+                aged_inspection_results
+                    .set(aged_inspection_results.get().saturating_add(aged.results));
+                aged_inspection_bytes_saved.set(
+                    aged_inspection_bytes_saved
+                        .get()
+                        .saturating_add(aged.bytes_saved),
+                );
+                tool_argument_shrinks
+                    .set(tool_argument_shrinks.get().saturating_add(shrunk.calls));
+                tool_argument_bytes_saved.set(
+                    tool_argument_bytes_saved
+                        .get()
+                        .saturating_add(shrunk.bytes_saved),
+                );
+                duplicate_inspection_results =
+                    duplicate_inspection_results.saturating_add(deduped.results);
+                duplicate_inspection_bytes_saved =
+                    duplicate_inspection_bytes_saved.saturating_add(deduped.bytes_saved);
+                hist_tokens.recompute(history);
+                deferred_rewrite_hops.set(0);
+                if rolling_flush {
+                    hop_breakers.push("rolling boundary flush");
+                }
+            } else {
+                deferred_rewrite_hops.set(0);
             }
         }
         let context_fit = if over_budget_for_compaction {
@@ -2366,6 +2400,11 @@ fn run_turn_tiered(
             )));
         }
         let mut provider_attempt = 0usize;
+        // Corrections made to this hop's request after a metering gateway
+        // would not hold credit for it, and the refusal the last one answered.
+        const MAX_RESERVATION_CORRECTIONS: usize = 6;
+        let mut reservation_corrections = 0usize;
+        let mut last_reservation: Option<crate::agent::club::ReservationRefusal> = None;
         let mut empty_reply_noted = false;
         let output_cap_notes = std::cell::Cell::new(0usize);
         let notes_workspace = registry.current_workspace().to_path_buf();
@@ -2384,13 +2423,24 @@ fn run_turn_tiered(
                 } else {
                     return;
                 }
-                let mut note = book::warpath(
-                    &notes_workspace,
-                    &[book::Raise::new(route, error.to_string())],
-                );
-                if route != book::x_execution::EMPTY {
-                    note.push_str(&format!("\n({error})"));
-                }
+                let note = if book_cues_enabled {
+                    let mut note = book::warpath(
+                        &notes_workspace,
+                        &[book::Raise::new(route, error.to_string())],
+                    );
+                    if route != book::x_execution::EMPTY {
+                        note.push_str(&format!("\n({error})"));
+                    }
+                    note
+                } else if route == book::x_execution::EMPTY {
+                    "Your previous reply was empty. Continue with a concrete tool call or response."
+                        .to_string()
+                } else {
+                    format!(
+                        "Your previous response reached the output token cap before completing ({error}). \
+                         Continue concisely in smaller steps (for example, write notes or one focused file per turn)."
+                    )
+                };
                 history.push(ChatMsg::harness(note));
             };
         crate::agent::turn::phase::mark("context_assembled");
@@ -2773,10 +2823,89 @@ fn run_turn_tiered(
                     {
                         request_overflows.set(request_overflows.get().saturating_add(1));
                     }
+                    // A metering gateway would not hold credit for this
+                    // request and said waiting will not fix it. The request
+                    // has to get smaller. The seat has already lowered its
+                    // own output limit; here the conversation is compacted,
+                    // by the agent's own compactor and with a notice, to the
+                    // size the gateway's amounts allow. Every correction
+                    // must be answered for a smaller request than the last,
+                    // and a request goes out again only if it changed (a
+                    // smaller conversation, or a lower output limit): when
+                    // nothing is left to shrink the turn stops instead of
+                    // sending the same bytes again, even once.
+                    let reservation_refused =
+                        crate::agent::club::error_indicates_reservation_exceeds(&err);
+                    if reservation_refused
+                        && !emitted_answer
+                        && !incomplete_stream
+                        && !cancel.load(Ordering::Relaxed)
+                    {
+                        let refusal = crate::agent::club::reservation_refusal(&err);
+                        let shrinking = match (&refusal, &last_reservation) {
+                            (Some(now), Some(earlier)) => now.smaller_than(earlier),
+                            _ => true,
+                        };
+                        if shrinking && reservation_corrections < MAX_RESERVATION_CORRECTIONS {
+                            let before = context_tokens(history, &defs);
+                            let target = refusal
+                                .as_ref()
+                                .map_or(before / 2, |refusal| refusal.context_budget(before))
+                                .max(256);
+                            let mut after = before;
+                            if target < before {
+                                compact_for_reservation_local(
+                                    history,
+                                    target,
+                                    compact_keep,
+                                    compact_keep_token_target.min(target / 2),
+                                    &defs,
+                                    registry,
+                                    events,
+                                );
+                                after = context_tokens(history, &defs);
+                                if after < before {
+                                    if effective_budget > 0 {
+                                        effective_budget = effective_budget.min(target);
+                                        compact_keep_tokens = if compact_keep_token_target == 0 {
+                                            0
+                                        } else {
+                                            compact_keep_token_target.min(effective_budget / 2)
+                                        };
+                                    }
+                                    hop_breakers.push("reservation compaction");
+                                }
+                            }
+                            // Only a changed request is sent again: the
+                            // conversation got smaller, or the seat said it
+                            // lowered its output limit for the next send.
+                            if after < before
+                                || crate::agent::club::error_notes_lower_output_limit(&err)
+                            {
+                                reservation_corrections += 1;
+                                if emitted_reasoning {
+                                    let _ = events.send(TurnEvent::SuppressPartial);
+                                }
+                                let amounts =
+                                    refusal.as_ref().map_or_else(String::new, |refusal| {
+                                        format!(
+                                            " ({:.4} needed held, {:.4} available)",
+                                            refusal.required, refusal.available
+                                        )
+                                    });
+                                let _ = events.send(TurnEvent::Notice(format!(
+                                    "the gateway would not hold credit for this request{amounts}; made the request smaller before asking again (conversation {before} → {after} estimated tokens, correction {reservation_corrections}/{MAX_RESERVATION_CORRECTIONS})"
+                                )));
+                                last_reservation = refusal;
+                                continue;
+                            }
+                        }
+                    }
                     if !emitted_answer
                         && !incomplete_stream
                         && !cancel.load(Ordering::Relaxed)
                         && context_overflow
+                        && !reservation_refused
                         && overflow_recoveries < max_overflow_recoveries
                         && effective_budget > 0
                     {
@@ -2819,6 +2948,7 @@ fn run_turn_tiered(
                         && !cancel.load(Ordering::Relaxed)
                         && session_recoveries < session_recovery_budget
                         && !is_permanent_provider_error(&err)
+                        && !reservation_refused
                         && let Some((fault, note)) = recover_session(
                             club,
                             registry,
@@ -2898,9 +3028,16 @@ fn run_turn_tiered(
                         leg_source,
                         leg_digest,
                     );
-                    crate::agent::harness::trajectory::note_stop_reason(
-                        TurnStopReason::ProviderError,
-                    );
+                    // A provider refusal is its own stop: callers (the loop
+                    // carry above all) must tell "the model declined this
+                    // conversation" from an ordinary provider fault.
+                    let stop_reason =
+                        if crate::agent::club::error_indicates_refusal(&err) {
+                            TurnStopReason::Declined
+                        } else {
+                            TurnStopReason::ProviderError
+                        };
+                    crate::agent::harness::trajectory::note_stop_reason(stop_reason);
                     log_trajectory(club, history, "", hop, false, None);
                     eprintln!(
                         "[turn] {} provider call failed on hop {hop} after {} retry attempt(s): {err}{}",
@@ -2923,6 +3060,12 @@ fn run_turn_tiered(
                     );
                     let retry_disposition = if stop_after_session_recovery {
                         "not retried: the long-session recovery latch owned this fault".to_string()
+                    } else if reservation_refused {
+                        format!(
+                            "not sent again: the gateway will not hold credit for this request \
+                             and it could not be made smaller ({reservation_corrections} \
+                             correction(s) tried)"
+                        )
                     } else if is_permanent_provider_error(&err) {
                         "not retried: permanent provider error (authentication, configuration, \
                          or exhausted quota)"
@@ -2953,7 +3096,7 @@ fn run_turn_tiered(
                     observed_failure!(
                         TurnFailure::new(
                             format!("{err}; {retry_disposition}{}", leg_note(&failure.leg)),
-                            TurnStopReason::ProviderError,
+                            stop_reason,
                             hop,
                         ),
                         "provider_error"
@@ -3416,7 +3559,9 @@ fn run_turn_tiered(
                 observed_outcome!(TurnOutcome::answer(answer, hop), "answer");
             }
             crate::agent::club::ClubReply::Calls(mut calls) => {
-                super::task_mode::append_test_after_write(&mut calls, hop);
+                if registry.has_tool("run_tests") {
+                    super::task_mode::append_test_after_write(&mut calls, hop);
+                }
                 let mut raised: Vec<book::Raise> = Vec::new();
                 cues.observe_calls(calls.iter().map(|call| call.name.as_str()));
                 if let Some(origin) = research_origin.as_deref() {
@@ -3430,7 +3575,10 @@ fn run_turn_tiered(
                 }
                 let private_reasoning = crate::agent::club::take_pending_tool_reasoning();
                 let tool_content = crate::agent::club::take_pending_tool_content();
-                let silence_note = silence.observe(tool_content.as_deref(), &calls);
+                let reasoned = private_reasoning
+                    .as_deref()
+                    .is_some_and(|text| !text.trim().is_empty());
+                let silence_note = silence.observe(tool_content.as_deref(), &calls, reasoned);
                 let responses_replay = crate::agent::club::take_pending_responses_replay();
                 let repaired_call_ids = normalize_tool_call_ids(&mut calls, history, hop);
                 if repaired_call_ids > 0 {
@@ -3750,6 +3898,12 @@ fn run_turn_tiered(
                                 && !classify::is_red_test_shell_run(call, result)
                         });
                 let error_streak = errors.observe(all_errored);
+                let sweep_note = number_sweep.observe(
+                    calls
+                        .iter()
+                        .zip(results.iter())
+                        .map(|(call, (_, _, outcome))| (call, outcome.execution)),
+                );
                 for (result, _, outcome) in results.iter() {
                     timing.note_tool_result(
                         !matches!(
@@ -4375,12 +4529,12 @@ fn run_turn_tiered(
                         (Some(before), Some(after)) => before != after,
                         _ => successful_mutation_this_hop,
                     };
-                if weak_verification_pending && !weak_verification_told {
+                if book_cues_enabled && weak_verification_pending && !weak_verification_told {
                     weak_verification_told = true;
                     raised.push(book::Raise::new(book::d3456_advisories::WEAK, None));
                 }
                 weak_verification_pending = false;
-                if green_verify_achieved && !green_verify_nudge_emitted {
+                if book_cues_enabled && green_verify_achieved && !green_verify_nudge_emitted {
                     green_verify_nudge_emitted = true;
                     raised.push(book::Raise::new(
                         if competition {
@@ -4531,8 +4685,10 @@ fn run_turn_tiered(
                         }
                     }
                 }
-                raised.extend(error_streak);
-                raised.extend(cues.take());
+                if book_cues_enabled {
+                    raised.extend(error_streak);
+                    raised.extend(cues.take());
+                }
                 loops.latch(&mut raised, progress_mutated);
                 raised.retain(book::Raise::available);
                 for raise in &raised {
@@ -4596,6 +4752,11 @@ fn run_turn_tiered(
                     let _ = events.send(TurnEvent::Notice(note.clone()));
                     history.push(ChatMsg::harness(note));
                 }
+                if let Some(note) = sweep_note {
+                    crate::agent::harness::trajectory::note_escalation(hop, "number-sweep");
+                    let _ = events.send(TurnEvent::Notice(note.clone()));
+                    history.push(ChatMsg::harness(note));
+                }
             }
         }
     }
@@ -4605,14 +4766,40 @@ pub(crate) fn configured_turn_deadline_secs() -> usize {
     env_usize("ANGEL_TURN_DEADLINE_SECS", 0)
 }
 
+/// Remaining wall-clock seconds allowed by `ANGEL_DEADLINE_EPOCH` (minus
+/// `ANGEL_DEADLINE_MARGIN_SECS`, default 30s), or `None` when unset/invalid.
+pub(crate) fn deadline_epoch_remaining_secs() -> Option<usize> {
+    let epoch = std::env::var("ANGEL_DEADLINE_EPOCH")
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .filter(|value| *value > 0)?;
+    let margin = std::env::var("ANGEL_DEADLINE_MARGIN_SECS")
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .unwrap_or(30);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let remaining = epoch.saturating_sub(now).saturating_sub(margin);
+    Some(usize::try_from(remaining).unwrap_or(usize::MAX))
+}
+
 pub(crate) fn configured_turn_deadline_secs_for(competition: bool) -> usize {
-    if std::env::var_os("ANGEL_TURN_DEADLINE_SECS").is_some() {
-        return env_usize("ANGEL_TURN_DEADLINE_SECS", 0);
+    let base = if std::env::var_os("ANGEL_TURN_DEADLINE_SECS").is_some() {
+        env_usize("ANGEL_TURN_DEADLINE_SECS", 0)
+    } else if competition && std::env::var_os("ANGEL_COMPETITION_TURN_DEADLINE_SECS").is_some() {
+        env_usize("ANGEL_COMPETITION_TURN_DEADLINE_SECS", 0)
+    } else {
+        0
+    };
+    match deadline_epoch_remaining_secs() {
+        Some(rem) => {
+            let cap = rem.max(1);
+            if base == 0 { cap } else { base.min(cap) }
+        }
+        None => base,
     }
-    if competition && std::env::var_os("ANGEL_COMPETITION_TURN_DEADLINE_SECS").is_some() {
-        return env_usize("ANGEL_COMPETITION_TURN_DEADLINE_SECS", 0);
-    }
-    0
 }
 
 fn last_user_task(history: &[ChatMsg]) -> String {

@@ -716,6 +716,205 @@ pub(crate) fn mentions_test_run(command: &str) -> bool {
     })
 }
 
+const CHECK_WORDS: &[&str] = &[
+    "benchmark",
+    "bench",
+    "eval",
+    "evaluate",
+    "verify",
+    "validate",
+    "score",
+    "measure",
+    "submit",
+];
+
+/// Shell keywords and wrapper programs: the command they run is the words after them.
+const COMMAND_PREFIXES: &[&str] = &[
+    "do", "then", "else", "elif", "if", "while", "until", "!", "{", "time", "exec", "command",
+    "env", "timeout", "nice", "nohup", "stdbuf", "sudo", "xargs", "setsid", "taskset", "ionice",
+];
+
+const SHELLS: &[&str] = &["sh", "bash", "zsh", "dash"];
+
+/// Programs that run the script, package script or subcommand named first in their arguments.
+const SCRIPT_RUNNERS: &[&str] = &[
+    "node", "deno", "bun", "ruby", "perl", "php", "julia", "lua", "rscript", "pypy", "pypy3",
+    "npm", "pnpm", "yarn", "npx", "cargo", "go", "uv", "poetry", "pipenv", "bundle", "dotnet",
+    "gradle", "gradlew", "mvn", "swift", "zig", "mix",
+];
+
+/// Programs whose arguments are all targets to run.
+const TARGET_RUNNERS: &[&str] = &["make", "gmake", "just", "ninja", "task", "rake"];
+
+/// The simple commands of a shell command, each as its words with quoting resolved. Heredoc
+/// bodies and comments are left out, so text that is only written or said is never a word.
+pub(crate) fn shell_simple_commands(command: &str) -> Vec<Vec<String>> {
+    shell_simple_commands_marking(command, None)
+}
+
+/// As [`shell_simple_commands`], with the `$` of every variable or parameter the shell would
+/// expand (`$name`, `${name}`, `$1`; not in single quotes, not escaped) written as `expansion`.
+pub(crate) fn shell_simple_commands_marking(
+    command: &str,
+    expansion: Option<char>,
+) -> Vec<Vec<String>> {
+    let Some(command) = without_heredoc_bodies(command) else {
+        return Vec::new();
+    };
+    let mut commands: Vec<Vec<String>> = vec![Vec::new()];
+    let mut word = String::new();
+    let (mut single, mut double) = (false, false);
+    let mut chars = command.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if single {
+            match ch {
+                '\'' => single = false,
+                _ => word.push(ch),
+            }
+        } else if ch == '\\' {
+            match chars.next() {
+                Some('\n') | None => {}
+                // Inside double quotes the shell keeps a backslash it does not consume, and
+                // a sed script there depends on it.
+                Some(next) if double && !matches!(next, '$' | '`' | '"' | '\\') => {
+                    word.push('\\');
+                    word.push(next);
+                }
+                Some(next) => word.push(next),
+            }
+        } else if ch == '$'
+            && let Some(mark) = expansion
+            && chars
+                .peek()
+                .is_some_and(|next| next.is_ascii_alphanumeric() || matches!(next, '_' | '{'))
+        {
+            word.push(mark);
+        } else if double {
+            match ch {
+                '"' => double = false,
+                _ => word.push(ch),
+            }
+        } else if ch == '\'' {
+            single = true;
+        } else if ch == '"' {
+            double = true;
+        } else if ch == '#' && word.is_empty() {
+            while chars.next_if(|next| *next != '\n').is_some() {}
+        } else if ch.is_whitespace() || matches!(ch, ';' | '|' | '&' | '(' | ')') {
+            if !word.is_empty()
+                && let Some(words) = commands.last_mut()
+            {
+                words.push(std::mem::take(&mut word));
+            }
+            if ch == '\n' || !ch.is_whitespace() {
+                commands.push(Vec::new());
+            }
+        } else {
+            word.push(ch);
+        }
+    }
+    if !word.is_empty()
+        && let Some(words) = commands.last_mut()
+    {
+        words.push(word);
+    }
+    commands.retain(|words| !words.is_empty());
+    commands
+}
+
+fn program_name(word: &str) -> String {
+    word.rsplit('/').next().unwrap_or(word).to_ascii_lowercase()
+}
+
+fn names_check(word: &str) -> bool {
+    !word.contains(char::is_whitespace)
+        && program_name(word)
+            .split(['-', '_', '.'])
+            .any(|part| CHECK_WORDS.contains(&part))
+}
+
+fn runs_named_check(mut words: &[String]) -> bool {
+    while let Some((word, rest)) = words.split_first() {
+        words = rest;
+        if word.starts_with('-') || shell_env_assignment(word) {
+            continue;
+        }
+        let name = program_name(word);
+        let name = name.as_str();
+        // A bare `eval` is the shell builtin, which runs its arguments; it is not a checker.
+        if word == "eval" || COMMAND_PREFIXES.contains(&name) {
+            let operands = rest
+                .iter()
+                .take_while(|operand| operand.starts_with(|c: char| c == '-' || c.is_ascii_digit()))
+                .count();
+            words = &rest[operands..];
+            continue;
+        }
+        if names_check(word) {
+            return true;
+        }
+        if TARGET_RUNNERS.contains(&name) {
+            return rest
+                .iter()
+                .any(|target| !target.starts_with('-') && names_check(target));
+        }
+        let shell = SHELLS.contains(&name);
+        if !(shell || SCRIPT_RUNNERS.contains(&name) || name.starts_with("python")) {
+            return false;
+        }
+        // `uv run`, `npm run`, `cargo run`, `bundle exec`: the command to judge comes after.
+        let Some(handed_on) = rest
+            .iter()
+            .position(|operand| !operand.starts_with('-') && !shell_env_assignment(operand))
+            .filter(|at| matches!(rest[*at].as_str(), "run" | "exec" | "x"))
+        else {
+            return runner_names_check(rest, shell);
+        };
+        if rest[..handed_on].iter().any(|flag| inline_code_flag(flag)) {
+            return false;
+        }
+        words = &rest[handed_on + 1..];
+    }
+    false
+}
+
+fn inline_code_flag(word: &str) -> bool {
+    word.strip_prefix('-')
+        .is_some_and(|flags| !flags.starts_with('-') && flags.ends_with(['c', 'e']))
+}
+
+/// Whether the first script or subcommand among a runner's arguments is a checker. Inline code
+/// names no program, except that a shell's inline string is a command of its own.
+fn runner_names_check(operands: &[String], shell: bool) -> bool {
+    for (index, operand) in operands.iter().enumerate() {
+        if inline_code_flag(operand) {
+            return shell
+                && operands
+                    .get(index + 1)
+                    .is_some_and(|inline| names_check_run(inline));
+        }
+        if !operand.starts_with('-') && !shell_env_assignment(operand) {
+            return names_check(operand);
+        }
+    }
+    false
+}
+
+fn names_check_run(command: &str) -> bool {
+    shell_simple_commands(command)
+        .iter()
+        .any(|words| runs_named_check(words))
+}
+
+/// Whether a shell command runs a test or a measurement: a test runner as in
+/// [`mentions_test_run`], or a program, script or target whose own name carries a check word
+/// (`./benchmark.sh`, `make verify`, `python3 run_eval.py`). Only a word in command position
+/// counts: `echo benchmark`, `cat run_eval.py` and a heredoc body name a checker without
+/// running one.
+pub(crate) fn mentions_check_run(command: &str) -> bool {
+    mentions_test_run(command) || names_check_run(command)
+}
+
 fn shell_pipeline_segments(segment: &str) -> impl Iterator<Item = &str> {
     let mut start = 0usize;
     shell_control_positions(segment)

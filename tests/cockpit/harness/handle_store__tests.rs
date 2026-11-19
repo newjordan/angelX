@@ -446,6 +446,30 @@ fn inspection_identity_for_offload_skips_when_cannot_park() {
     );
 }
 
+#[test]
+fn handle_store_disables_when_allowlist_excludes_handle_read() {
+    let _guard = crate::tests::env_lock();
+    let _on = EnvGuard::set("ANGEL_HANDLE_STORE", "1");
+    {
+        let _tools = EnvGuard::set("ANGEL_TOOLS", "shell,read_file,write_file,str_replace");
+        assert!(
+            !handle_store_enabled(),
+            "handle store must stay off when ANGEL_TOOLS excludes handle_read"
+        );
+        let big = "x".repeat(24 * 1024);
+        let off = eager_offload_tool_result("shell", big.clone(), Some("shell:cat"));
+        assert!(!off.offloaded);
+        assert_eq!(off.content, big);
+    }
+    {
+        let _tools = EnvGuard::set("ANGEL_TOOLS", "shell,read_file,handle_read");
+        assert!(
+            handle_store_enabled(),
+            "handle store stays enabled when ANGEL_TOOLS includes handle_read"
+        );
+    }
+}
+
 struct EnvGuard {
     key: &'static str,
     old: Option<std::ffi::OsString>,

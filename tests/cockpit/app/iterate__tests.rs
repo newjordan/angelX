@@ -204,3 +204,38 @@ fn curated_prompt_injects_pivot_when_flagged() {
     );
     assert!(pivot.contains("⠘⠋⠑"), "{pivot}");
 }
+
+#[test]
+fn a_self_declared_estimate_is_an_open_lead_not_a_finding() {
+    let out = "DIRECTION: cut the retry cost\nFINDINGS:\n\
+               - retries dropped from 5 to 3, p99 fell to 180 ms [evidence: benchmark: bench/p99.txt]\n\
+               - splitting the batch would cancel the saving (estimated, not run) [evidence: file: src/batch.rs]\n\
+               - a wider cache looks no cheaper by my count\n\
+               - the pooled path was not measured\n\
+               HYPOTHESES:\n- an untested third option";
+    let (_, findings, hypotheses) = parse_iteration_sections(out);
+    assert_eq!(
+        findings,
+        vec![
+            "retries dropped from 5 to 3, p99 fell to 180 ms [evidence: benchmark: bench/p99.txt]"
+                .to_string()
+        ],
+        "only the measured item is a finding"
+    );
+    assert_eq!(hypotheses.len(), 4, "the three estimates join the stated lead: {hypotheses:?}");
+    assert!(hypotheses[0].contains("splitting the batch"));
+}
+
+#[test]
+fn an_estimate_is_judged_by_the_claim_not_by_its_evidence_tag() {
+    assert!(is_self_declared_estimate(
+        "the rewrite is not worth it (estimated only) [evidence: file: src/a.rs]"
+    ));
+    assert!(is_self_declared_estimate("Pooling: untested"));
+    assert!(!is_self_declared_estimate(
+        "measured 4.1 s against 6.0 s [evidence: file: notes/estimated-costs.md]"
+    ));
+    assert!(!is_self_declared_estimate(
+        "the estimate in the design note was wrong: measured 4.1 s"
+    ));
+}

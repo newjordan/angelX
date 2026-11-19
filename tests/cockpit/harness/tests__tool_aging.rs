@@ -1813,3 +1813,42 @@ fn a_provider_harness_seat_keeps_history_append_only_between_compactions() {
         }
     }
 }
+
+#[test]
+fn no_autocompact_keeps_prefix_append_only_without_tiny_rolling_flush() {
+    let _guard = crate::tests::env_lock();
+    let _no_ac = EnvGuard::set("ANGEL_NO_AUTOCOMPACT", "1");
+    unsafe { std::env::remove_var("ANGEL_ROLLING_REWRITE_HOPS") };
+    let _floor = EnvGuard::set("ANGEL_ROLLING_REWRITE_MIN_TOKENS", "24000");
+    let _stable = EnvGuard::set("ANGEL_CACHE_STABLE", "1");
+    let _hops = EnvGuard::set("ANGEL_TOOL_AGE_KEEP_HOPS", "1");
+    let _tokens = EnvGuard::set("ANGEL_TOOL_AGE_PROTECT_TOKENS", "0");
+    let _min = EnvGuard::set("ANGEL_TOOL_AGE_MIN_BYTES", "512");
+    let _handles = EnvGuard::set("ANGEL_HANDLE_STORE", "0");
+    let club = AgingProbeClub {
+        hops: AtomicUsize::new(0),
+        requests_with_aged_results: AtomicUsize::new(0),
+        retained: std::sync::Mutex::new(Vec::new()),
+        check_prefix: true,
+        provider_budget: false,
+        stop_at: 16,
+    };
+    let reg = ToolRegistry::with_defaults();
+    let mut history = vec![ChatMsg::user("probe no-autocompact rolling flush")];
+    let (events, _rx) = mpsc::channel::<TurnEvent>();
+    let answer = run_turn(
+        &club,
+        &reg,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(20),
+        &events,
+    )
+    .unwrap();
+    assert_eq!(answer, "done");
+    assert_eq!(
+        club.requests_with_aged_results.load(Ordering::SeqCst),
+        0,
+        "ANGEL_NO_AUTOCOMPACT=1 must not fire rolling in-place rewrites that break warm prompt caches"
+    );
+}

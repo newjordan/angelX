@@ -153,6 +153,165 @@ pub(crate) fn error_indicates_quota_exhausted(err: &str) -> bool {
     err.contains("quota exhausted") || (err.contains("429") && is_quota_exhausted(err))
 }
 
+/// The provider declined the request itself (a Messages `refusal` stop, as
+/// rendered by the Anthropic wire). Distinct from transport or quota faults:
+/// the same request sent again earns the same refusal.
+pub(crate) fn error_indicates_refusal(err: &str) -> bool {
+    let e = err.to_ascii_lowercase();
+    e.contains("stop_reason refusal")
+        || e.contains("stop_reason\":\"refusal\"")
+        || e.contains("\"type\":\"refusal\"")
+        || e.contains("\"type\": \"refusal\"")
+}
+
+/// A metering gateway's recovery contract, carried in its error body:
+/// `run_action` says whether the run may go on at all, `retryable` whether
+/// the same request may be sent again, and a reservation code says the
+/// request's worst-case hold exceeds the credit left. That last one is
+/// correctable only by sending a smaller request: the turn compacts the
+/// conversation with the agent's own compactor, in the open, and the seat
+/// lowers its own output limit. The same bytes are never sent twice.
+pub(crate) fn error_indicates_gateway_stop(err: &str) -> bool {
+    let e = err.to_ascii_lowercase();
+    e.contains("\"run_action\":\"stop\"") || e.contains("\"run_action\": \"stop\"")
+}
+
+pub(crate) fn error_indicates_gateway_retryable(err: &str) -> bool {
+    let e = err.to_ascii_lowercase();
+    e.contains("\"retryable\":true") || e.contains("\"retryable\": true")
+}
+
+/// True for a reservation refusal the gateway says waiting will not fix:
+/// the request itself has to change. Matched on the gateway's error code
+/// (`…_reservation_…`), not on the word appearing somewhere in prose.
+pub(crate) fn error_indicates_reservation_exceeds(err: &str) -> bool {
+    (reservation_refusal(err).is_some() || err.to_ascii_lowercase().contains("_reservation_"))
+        && !error_indicates_gateway_stop(err)
+        && !error_indicates_gateway_retryable(err)
+}
+
+/// Appended by the seat to a reservation refusal when it lowered its own
+/// output limit for the next send. With a smaller conversation, this is the
+/// only other way a corrected request differs from the one refused.
+pub(crate) const RESERVATION_LIMIT_LOWERED: &str = "[output limit lowered to ";
+
+pub(crate) fn error_notes_lower_output_limit(err: &str) -> bool {
+    err.contains(RESERVATION_LIMIT_LOWERED)
+}
+
+/// What a metering gateway reported when it would not hold credit for a
+/// request. The request was not sent upstream and cost nothing; the numbers
+/// say how far it has to shrink before it can be.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct ReservationRefusal {
+    /// Credit the run can still commit, in the gateway's currency.
+    pub(crate) available: f64,
+    /// Credit the refused request's worst case would hold.
+    pub(crate) required: f64,
+    /// The worst-case size the gateway priced (its input bound plus the
+    /// output limit), when it says.
+    pub(crate) reserved_tokens: Option<u64>,
+    /// The gateway says the same request can be admitted once other calls
+    /// settle. Such a refusal is waited out, never shrunk.
+    pub(crate) retryable: bool,
+}
+
+/// Share of the credit left that a corrected request is sized to hold. The
+/// rest is room for the conversation to grow and for the credit to fall
+/// before the next refusal: each correction rewrites the provider's cache,
+/// so a few deep cuts cost less than many shallow ones.
+const RESERVATION_FIT_SHARE: f64 = 0.5;
+const RESERVATION_MIN_KEEP: f64 = 0.05;
+const RESERVATION_OUTPUT_FLOOR: u64 = 8192;
+
+fn reservation_fit_share() -> f64 {
+    std::env::var("ANGEL_RESERVATION_FIT_SHARE")
+        .ok()
+        .and_then(|value| value.trim().parse::<f64>().ok())
+        .filter(|share| share.is_finite() && *share > 0.0 && *share <= 1.0)
+        .unwrap_or(RESERVATION_FIT_SHARE)
+}
+
+/// Lowest output limit a reservation refusal may push a seat down to. The
+/// output limit is the small term of a reservation; below this, replies are
+/// cut mid tool call and the request is paid for twice.
+pub(crate) fn reservation_output_floor() -> u64 {
+    std::env::var("ANGEL_RESERVATION_OUTPUT_FLOOR")
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .filter(|floor| *floor > 0)
+        .unwrap_or(RESERVATION_OUTPUT_FLOOR)
+}
+
+/// Reads a reservation refusal out of a provider error (`HTTP 400: {json}`).
+/// `None` unless the body carries a reservation code and both amounts.
+pub(crate) fn reservation_refusal(err: &str) -> Option<ReservationRefusal> {
+    let start = err.find('{')?;
+    let body = serde_json::Deserializer::from_str(&err[start..])
+        .into_iter::<serde_json::Value>()
+        .next()?
+        .ok()?;
+    // The gateway repeats its diagnostic at the top level and under
+    // `diagnostic`; some relays nest it under `error`.
+    let layers = [Some(&body), body.get("diagnostic"), body.get("error")];
+    let field = |key: &str| {
+        layers
+            .iter()
+            .flatten()
+            .find_map(|layer| layer.get(key).filter(|value| !value.is_null()))
+    };
+    let code = field("code")?.as_str()?.to_ascii_lowercase();
+    if !code.contains("reservation") {
+        return None;
+    }
+    let amount = |key: &str| {
+        field(key)
+            .and_then(serde_json::Value::as_f64)
+            .filter(|value| value.is_finite() && *value >= 0.0)
+    };
+    let required = amount("required_reservation_usd").filter(|value| *value > 0.0)?;
+    Some(ReservationRefusal {
+        available: amount("available_usd")?,
+        required,
+        reserved_tokens: field("reserved_tokens").and_then(serde_json::Value::as_u64),
+        retryable: field("retryable")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false),
+    })
+}
+
+impl ReservationRefusal {
+    /// How much of the refused request's size the corrected one may keep so
+    /// that its hold fits inside the fit share of the credit left. A
+    /// reservation is linear in input size and output limit, so scaling both
+    /// by this fraction fits whatever the two prices are.
+    pub(crate) fn keep_fraction(&self) -> f64 {
+        (reservation_fit_share() * self.available / self.required).clamp(RESERVATION_MIN_KEEP, 1.0)
+    }
+
+    /// The output limit to ask for after a refusal of one that asked `sent`.
+    pub(crate) fn output_limit(&self, sent: u64, floor: u64) -> u64 {
+        let scaled = (sent as f64 * self.keep_fraction()) as u64;
+        scaled.max(floor).min(sent)
+    }
+
+    /// The conversation budget (estimated tokens, tools included) for the
+    /// corrected request, given the refused one measured `estimated`.
+    pub(crate) fn context_budget(&self, estimated: usize) -> usize {
+        ((estimated as f64 * self.keep_fraction()) as usize).max(256)
+    }
+
+    /// Whether this refusal is for a smaller request than `earlier`. A
+    /// correction that did not shrink the request has nothing left to give:
+    /// sending it again would be refused again, for ever.
+    pub(crate) fn smaller_than(&self, earlier: &Self) -> bool {
+        match (self.reserved_tokens, earlier.reserved_tokens) {
+            (Some(now), Some(before)) => now < before,
+            _ => self.required < earlier.required,
+        }
+    }
+}
+
 pub(crate) fn error_indicates_certificate_rejected(err: &str) -> bool {
     err.contains("invalid peer certificate")
 }
@@ -376,3 +535,7 @@ mod reset_duration_stress;
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/club/retry__liveness_defaults.rs"]
 mod liveness_defaults;
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/club/retry__reservation_tests.rs"]
+mod reservation_tests;

@@ -202,6 +202,20 @@ pub(super) fn to_messages_body_for(chat: &Value, flavor: Flavor) -> Result<Value
         {
             blocks.sort_by_key(|block| block["type"] != "tool_result");
         }
+        // Anthropic Messages requires thinking / redacted_thinking blocks to
+        // lead any assistant content array (e.g. if compaction spliced an
+        // assistant snapshot immediately before a kept thinking turn).
+        if flavor == Flavor::Anthropic
+            && message["role"] == "assistant"
+            && let Some(blocks) = message["content"].as_array_mut()
+        {
+            blocks.sort_by_key(|block| {
+                !matches!(
+                    block["type"].as_str(),
+                    Some("thinking" | "redacted_thinking")
+                )
+            });
+        }
     }
     let mut body = Map::new();
     body.insert("model".into(), json!(model));

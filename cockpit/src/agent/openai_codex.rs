@@ -755,7 +755,10 @@ impl CodexClub {
             api_key: None,
             reasoning_summary: "auto".to_string(),
             replay_enabled: std::env::var("ANGEL_OPENAI_REPLAY").as_deref() == Ok("1"),
-            prompt_cache_key: false,
+            prompt_cache_key: crate::agent::harness::env_flag(
+                "ANGEL_OPENAI_PROMPT_CACHE_KEY",
+                false,
+            ),
             cyber_access_program: None,
             api_controls: None,
             #[cfg(test)]
@@ -1330,6 +1333,11 @@ impl CodexClub {
             if self.api_key.is_none() {
                 request = request
                     .set("ChatGPT-Account-Id", &account)
+                    .set("OpenAI-Beta", "responses=experimental")
+                    .set("originator", ORIGINATOR)
+                    .set("session_id", &self.session_id);
+            } else if crate::agent::harness::env_flag("ANGEL_OPENAI_CODEX_HEADERS", false) {
+                request = request
                     .set("OpenAI-Beta", "responses=experimental")
                     .set("originator", ORIGINATOR)
                     .set("session_id", &self.session_id);
@@ -1984,15 +1992,23 @@ fn describe_err(e: ureq::Error) -> String {
 }
 
 fn describe_response_error(code: u16, body: &str, vetoed: bool) -> String {
-    let detail = serde_json::from_str::<serde_json::Value>(body)
-        .ok()
-        .and_then(|v| {
-            v.pointer("/error/message")
-                .or_else(|| v.get("detail"))
-                .and_then(|m| m.as_str())
-                .map(str::to_string)
-        })
-        .unwrap_or_else(|| body.trim().chars().take(200).collect());
+    let trimmed = body.trim();
+    let has_gateway_contract = trimmed.contains("\"run_action\"")
+        || trimmed.contains("\"required_reservation_usd\"")
+        || trimmed.contains("\"available_usd\"");
+    let detail = if has_gateway_contract {
+        trimmed.chars().take(600).collect()
+    } else {
+        serde_json::from_str::<serde_json::Value>(body)
+            .ok()
+            .and_then(|v| {
+                v.pointer("/error/message")
+                    .or_else(|| v.get("detail"))
+                    .and_then(|m| m.as_str())
+                    .map(str::to_string)
+            })
+            .unwrap_or_else(|| trimmed.chars().take(200).collect())
+    };
     let status = crate::agent::club::provider_status_label(code, vetoed);
     crate::platform::secrets::redact_error(&format!("{status}: {detail}"))
 }

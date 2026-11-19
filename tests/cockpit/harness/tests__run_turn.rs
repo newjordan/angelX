@@ -10363,6 +10363,123 @@ fn never_on_a_tail(history: &[ChatMsg], route: &str) {
     );
 }
 
+struct Tweak;
+
+impl Tool for Tweak {
+    fn name(&self) -> &str {
+        "str_replace"
+    }
+    fn def(&self) -> ToolDef {
+        ToolDef {
+            name: "str_replace".into(),
+            description: "Replace text in a file.".into(),
+            params: json!({"type": "object"}),
+        }
+    }
+    fn call(&self, args: &Value) -> Result<String, String> {
+        let path = args["path"].as_str().ok_or("missing 'path'")?;
+        Ok(format!("edited {path} (1 replacement)"))
+    }
+}
+
+/// A turn of three edits, each followed by a green test run; the history and the notices sent.
+fn run_edit_and_check_turn(name: &str, edits: [(&str, &str); 3]) -> (Vec<ChatMsg>, Vec<String>) {
+    let root = root_fixture(name);
+    std::fs::write(root.join("fixed"), "").unwrap();
+    let mut moves = Vec::new();
+    for (attempt, (old, new)) in edits.into_iter().enumerate() {
+        moves.push(Move::Call(tc(
+            "str_replace",
+            json!({"path": "lib.rs", "old": old, "new": new}),
+        )));
+        moves.push(run_tests_call(attempt));
+    }
+    moves.push(Move::Say("done"));
+    let script = Script::new(moves);
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(root.clone());
+    registry.register(Box::new(Suite {
+        root: root.clone(),
+        runs: Arc::new(AtomicUsize::new(0)),
+    }));
+    registry.register(Box::new(Tweak));
+    let mut history = vec![ChatMsg::user("make the tests pass")];
+    let (events, seen) = mpsc::channel::<TurnEvent>();
+    run_turn_observed(
+        &script,
+        &registry,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(30),
+        &events,
+    )
+    .expect("the turn answers");
+    let notices = seen
+        .try_iter()
+        .filter_map(|event| match event {
+            TurnEvent::Notice(text) => Some(text),
+            _ => None,
+        })
+        .collect();
+    let _ = std::fs::remove_dir_all(root);
+    (history, notices)
+}
+
+#[test]
+fn three_checked_numbers_only_edits_put_one_plain_notice_in_front_of_the_model() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let notice = "The last 3 changes altered only numbers, each followed by a check. If that \
+                  check samples its inputs, the lowest setting that passes once is not a result: \
+                  it will fail on another draw. Keep the last setting that passed with room to \
+                  spare, record it, and make the next change a structural one.";
+    let (history, notices) = run_edit_and_check_turn(
+        "number_sweep_notice",
+        [
+            ("const RETRIES: u32 = 3;", "const RETRIES: u32 = 4;"),
+            ("const RETRIES: u32 = 4;", "const RETRIES: u32 = 5;"),
+            ("const RETRIES: u32 = 5;", "const RETRIES: u32 = 6;"),
+        ],
+    );
+    let said: Vec<usize> = history
+        .iter()
+        .enumerate()
+        .filter(|(_, m)| m.role == ChatRole::Harness && m.content.as_ref() == notice)
+        .map(|(index, _)| index)
+        .collect();
+    assert_eq!(said.len(), 1, "{history:?}");
+    let third_check = history
+        .iter()
+        .rposition(|m| m.role == ChatRole::Tool)
+        .expect("tool results");
+    assert!(
+        said[0] > third_check,
+        "the notice follows the third check's result: {history:?}"
+    );
+    assert!(notices.iter().any(|text| text == notice), "{notices:?}");
+
+    let (history, notices) = run_edit_and_check_turn(
+        "number_sweep_structural",
+        [
+            ("const RETRIES: u32 = 3;", "const RETRIES: u32 = 4;"),
+            ("retry(RETRIES)", "retry_with_backoff(RETRIES)"),
+            ("const RETRIES: u32 = 4;", "const RETRIES: u32 = 5;"),
+        ],
+    );
+    assert!(
+        !history
+            .iter()
+            .any(|m| m.content.contains("altered only numbers")),
+        "{history:?}"
+    );
+    assert!(
+        !notices
+            .iter()
+            .any(|text| text.contains("altered only numbers")),
+        "{notices:?}"
+    );
+}
+
 #[test]
 fn the_first_edit_earns_the_post_edit_review_once_as_its_own_turn() {
     let _guard = crate::tests::env_lock();
@@ -11104,4 +11221,607 @@ fn h01_independent_veto_holdout() {
             "unexpected permanence classification for {error:?}"
         );
     }
+}
+
+/// The refusal a metering gateway sent on 2026-11-19 (private run
+/// `local-4af456627eb642d4`), as the HTTP seat reports it.
+fn reservation_refusal_error(available: f64, required: f64, reserved_tokens: u64) -> String {
+    format!(
+        "HTTP 400: {}",
+        json!({
+            "error": "Insufficient credits for this request's conservative reservation; \
+                      shorten the input or lower an explicit output-token limit. \
+                      This request was not sent to the provider.",
+            "code": "model_reservation_exceeds_remaining_budget",
+            "category": "correctable",
+            "run_action": "continue",
+            "action": "correct_request",
+            "retryable": false,
+            "available_usd": available,
+            "required_reservation_usd": required,
+            "budget_usd": 3.0,
+            "reserved_tokens": reserved_tokens,
+            "upstream_request_sent": false,
+        })
+    )
+}
+
+fn reservation_history() -> Vec<ChatMsg> {
+    let mut history = vec![
+        ChatMsg::system("coding harness"),
+        ChatMsg::user("keep working on the task"),
+    ];
+    for index in 0..48 {
+        history.push(ChatMsg::assistant(format!(
+            "work-{index} {}",
+            "a".repeat(400)
+        )));
+    }
+    history
+}
+
+/// On 2026-11-19 a request the gateway had refused (`retryable: false`) was
+/// sent again unchanged 774 times in 26 minutes. A refused request that
+/// cannot be made smaller is sent once more at most, then the turn stops.
+#[test]
+fn run_turn_never_resends_a_reservation_refused_request_that_did_not_shrink() {
+    let _guard = crate::tests::env_lock();
+    // The default: unbounded provider retries. The wedge happened under it.
+    let _retries = EnvGuard::unset("ANGEL_PROVIDER_RETRIES");
+    let _backoff = EnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
+    let _budget = EnvGuard::set("ANGEL_CONTEXT_BUDGET_TOKENS", "100000");
+    let _share = EnvGuard::unset("ANGEL_RESERVATION_FIT_SHARE");
+
+    struct AlwaysRefused {
+        calls: AtomicUsize,
+    }
+    impl Club for AlwaysRefused {
+        fn respond(&self, _prompt: &str) -> Result<String, String> {
+            Ok("## Task\n- continue the coding task".into())
+        }
+        fn label(&self) -> &str {
+            "always-refused"
+        }
+        fn chat_streaming(
+            &self,
+            _messages: &[ChatMsg],
+            _tools: &[ToolDef],
+            _cancel: &AtomicBool,
+            _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
+        ) -> Result<ClubReply, String> {
+            let calls = self.calls.fetch_add(1, Ordering::SeqCst) + 1;
+            assert!(
+                calls <= 12,
+                "the refused request is being resent without end ({calls} sends)"
+            );
+            // The gateway prices the same size every time: nothing shrank.
+            Err(reservation_refusal_error(
+                0.3517859999999997,
+                0.368728,
+                176_172,
+            ))
+        }
+    }
+
+    let club = AlwaysRefused {
+        calls: AtomicUsize::new(0),
+    };
+    let mut history = reservation_history();
+    let (event_tx, event_rx) = mpsc::channel();
+    let failure = run_turn(
+        &club,
+        &ToolRegistry::new(),
+        &mut history,
+        &AtomicBool::new(false),
+        Some(3),
+        &event_tx,
+    )
+    .expect_err("a request that cannot fit the credit left must end the turn");
+
+    assert_eq!(
+        club.calls.load(Ordering::SeqCst),
+        2,
+        "one send, one corrected send, and no third: {failure}"
+    );
+    assert!(
+        failure.contains("not sent again") && failure.contains("could not be made smaller"),
+        "the failure must say why it stopped: {failure}"
+    );
+    let notices = event_rx
+        .try_iter()
+        .filter_map(|event| match event {
+            TurnEvent::Notice(text) => Some(text),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        notices.iter().all(|notice| !notice.contains("retrying")),
+        "the generic retry must never carry a refused request: {notices:?}"
+    );
+}
+
+/// A refusal with the gateway's amounts is answered with a request sized to
+/// them: the conversation is compacted in the open and the next send goes
+/// through.
+#[test]
+fn run_turn_shrinks_the_request_to_the_gateways_amounts_after_a_reservation_refusal() {
+    let _guard = crate::tests::env_lock();
+    let _retries = EnvGuard::unset("ANGEL_PROVIDER_RETRIES");
+    let _backoff = EnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
+    let _budget = EnvGuard::set("ANGEL_CONTEXT_BUDGET_TOKENS", "100000");
+    let _share = EnvGuard::unset("ANGEL_RESERVATION_FIT_SHARE");
+
+    struct RefusedOnce {
+        calls: AtomicUsize,
+        first_size: AtomicUsize,
+        second_size: AtomicUsize,
+    }
+    impl Club for RefusedOnce {
+        fn respond(&self, _prompt: &str) -> Result<String, String> {
+            Ok("## Task\n- continue the coding task\n## Files\n- src/lib.rs".into())
+        }
+        fn label(&self) -> &str {
+            "refused-once"
+        }
+        fn chat_streaming(
+            &self,
+            messages: &[ChatMsg],
+            _tools: &[ToolDef],
+            _cancel: &AtomicBool,
+            on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
+        ) -> Result<ClubReply, String> {
+            let size = context_tokens(messages, &[]);
+            if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                self.first_size.store(size, Ordering::SeqCst);
+                // 2026-11-19, first refusal: 1.480356 needed, 1.4519148 left.
+                return Err(reservation_refusal_error(1.4519148, 1.480356, 612_178));
+            }
+            self.second_size.store(size, Ordering::SeqCst);
+            on_delta(crate::agent::club::StreamDelta::Content("went through"));
+            Ok(ClubReply::Text("went through".into()))
+        }
+    }
+
+    let club = RefusedOnce {
+        calls: AtomicUsize::new(0),
+        first_size: AtomicUsize::new(0),
+        second_size: AtomicUsize::new(0),
+    };
+    let mut history = reservation_history();
+    let (event_tx, event_rx) = mpsc::channel();
+    let answer = run_turn(
+        &club,
+        &ToolRegistry::new(),
+        &mut history,
+        &AtomicBool::new(false),
+        Some(3),
+        &event_tx,
+    )
+    .expect("a corrected request must go through");
+
+    assert_eq!(answer, "went through");
+    assert_eq!(club.calls.load(Ordering::SeqCst), 2);
+    let (first, second) = (
+        club.first_size.load(Ordering::SeqCst),
+        club.second_size.load(Ordering::SeqCst),
+    );
+    assert!(
+        second * 10 <= first * 6,
+        "the corrected request must be sized to about half the credit left, \
+         not trimmed a little: {first} → {second} estimated tokens"
+    );
+    let notices = event_rx
+        .try_iter()
+        .filter_map(|event| match event {
+            TurnEvent::Notice(text) => Some(text),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        notices.iter().any(|notice| {
+            notice.contains("would not hold credit")
+                && notice.contains("1.4804 needed held, 1.4519 available")
+                && notice.contains("correction 1/")
+        }),
+        "the correction must be announced with the gateway's amounts: {notices:?}"
+    );
+    assert!(
+        notices.iter().all(|notice| !notice.contains("retrying")),
+        "the generic retry must never carry a refused request: {notices:?}"
+    );
+}
+
+/// A refused request that cannot change at all (nothing to compact, no
+/// output limit lowered) is not sent a second time, not even once.
+#[test]
+fn run_turn_does_not_send_a_reservation_refused_request_again_when_nothing_can_change() {
+    let _guard = crate::tests::env_lock();
+    let _retries = EnvGuard::unset("ANGEL_PROVIDER_RETRIES");
+    let _backoff = EnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
+    let _budget = EnvGuard::set("ANGEL_CONTEXT_BUDGET_TOKENS", "100000");
+    let _share = EnvGuard::unset("ANGEL_RESERVATION_FIT_SHARE");
+
+    struct RefusedSmallest {
+        calls: AtomicUsize,
+    }
+    impl Club for RefusedSmallest {
+        fn respond(&self, _prompt: &str) -> Result<String, String> {
+            Ok("## Task\n- continue".into())
+        }
+        fn label(&self) -> &str {
+            "refused-smallest"
+        }
+        fn chat_streaming(
+            &self,
+            _messages: &[ChatMsg],
+            _tools: &[ToolDef],
+            _cancel: &AtomicBool,
+            _on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
+        ) -> Result<ClubReply, String> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            // 2026-11-19: the smallest request a fresh conversation makes,
+            // refused with 0.20 left. No seat note: no limit was lowered.
+            Err(reservation_refusal_error(0.2, 0.211808, 63_944))
+        }
+    }
+
+    let club = RefusedSmallest {
+        calls: AtomicUsize::new(0),
+    };
+    let mut history = vec![ChatMsg::system("coding harness"), ChatMsg::user("go on")];
+    let (event_tx, _event_rx) = mpsc::channel();
+    let failure = run_turn(
+        &club,
+        &ToolRegistry::new(),
+        &mut history,
+        &AtomicBool::new(false),
+        Some(3),
+        &event_tx,
+    )
+    .expect_err("the credit left cannot fund the smallest request");
+
+    assert_eq!(
+        club.calls.load(Ordering::SeqCst),
+        1,
+        "an unchanged request must not be sent again: {failure}"
+    );
+    assert!(
+        failure.contains("not sent again") && failure.contains("could not be made smaller"),
+        "{failure}"
+    );
+}
+
+/// The seat's note that it lowered its own output limit is enough for one
+/// more send: the request goes out changed even if the conversation cannot
+/// shrink.
+#[test]
+fn run_turn_sends_again_when_the_seat_lowered_its_output_limit() {
+    let _guard = crate::tests::env_lock();
+    let _retries = EnvGuard::unset("ANGEL_PROVIDER_RETRIES");
+    let _backoff = EnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
+    let _budget = EnvGuard::set("ANGEL_CONTEXT_BUDGET_TOKENS", "100000");
+    let _share = EnvGuard::unset("ANGEL_RESERVATION_FIT_SHARE");
+
+    struct LowersThenAnswers {
+        calls: AtomicUsize,
+    }
+    impl Club for LowersThenAnswers {
+        fn respond(&self, _prompt: &str) -> Result<String, String> {
+            Ok("## Task\n- continue".into())
+        }
+        fn label(&self) -> &str {
+            "lowers-then-answers"
+        }
+        fn chat_streaming(
+            &self,
+            _messages: &[ChatMsg],
+            _tools: &[ToolDef],
+            _cancel: &AtomicBool,
+            on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
+        ) -> Result<ClubReply, String> {
+            if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                return Err(format!(
+                    "{} {}16000]",
+                    reservation_refusal_error(0.5, 0.52, 82_000),
+                    crate::agent::club::RESERVATION_LIMIT_LOWERED
+                ));
+            }
+            on_delta(crate::agent::club::StreamDelta::Content("fits now"));
+            Ok(ClubReply::Text("fits now".into()))
+        }
+    }
+
+    let club = LowersThenAnswers {
+        calls: AtomicUsize::new(0),
+    };
+    let mut history = vec![ChatMsg::system("coding harness"), ChatMsg::user("go on")];
+    let (event_tx, _event_rx) = mpsc::channel();
+    let answer = run_turn(
+        &club,
+        &ToolRegistry::new(),
+        &mut history,
+        &AtomicBool::new(false),
+        Some(3),
+        &event_tx,
+    )
+    .expect("a request with a lower output limit is a changed request");
+    assert_eq!(answer, "fits now");
+    assert_eq!(club.calls.load(Ordering::SeqCst), 2);
+}
+
+/// Reservation compaction must run locally (zero LLM summarizer calls) even
+/// when routine auto-compaction is switched off (`ANGEL_NO_AUTOCOMPACT=1`), and
+/// drop prior-turn thinking payloads while keeping active-turn thinking intact.
+#[test]
+fn run_turn_compacts_locally_on_reservation_refusal_even_with_autocompact_off_and_no_llm_calls() {
+    let _guard = crate::tests::env_lock();
+    let _retries = EnvGuard::unset("ANGEL_PROVIDER_RETRIES");
+    let _backoff = EnvGuard::set("ANGEL_PROVIDER_RETRY_BACKOFF_MS", "0");
+    let _no_auto = EnvGuard::set("ANGEL_NO_AUTOCOMPACT", "1");
+    let _share = EnvGuard::unset("ANGEL_RESERVATION_FIT_SHARE");
+
+    struct RefusedOnceNoRespond {
+        chat_calls: AtomicUsize,
+        respond_calls: AtomicUsize,
+        first_size: AtomicUsize,
+        second_size: AtomicUsize,
+        second_has_active_thinking: AtomicBool,
+    }
+    impl Club for RefusedOnceNoRespond {
+        fn respond(&self, _prompt: &str) -> Result<String, String> {
+            self.respond_calls.fetch_add(1, Ordering::SeqCst);
+            panic!("reservation recovery must not call the metered LLM to summarize");
+        }
+        fn label(&self) -> &str {
+            "refused-once-local"
+        }
+        fn chat_streaming(
+            &self,
+            messages: &[ChatMsg],
+            _tools: &[ToolDef],
+            _cancel: &AtomicBool,
+            on_delta: &mut dyn FnMut(crate::agent::club::StreamDelta),
+        ) -> Result<ClubReply, String> {
+            let size = context_tokens(messages, &[]);
+            if self.chat_calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                self.first_size.store(size, Ordering::SeqCst);
+                return Err(reservation_refusal_error(0.50, 1.20, 420_000));
+            }
+            self.second_size.store(size, Ordering::SeqCst);
+            let active_kept = messages.iter().any(|m| {
+                m.private_reasoning
+                    .as_deref()
+                    .is_some_and(|r| r.contains("ACTIVE_SIG"))
+            });
+            self.second_has_active_thinking
+                .store(active_kept, Ordering::SeqCst);
+            on_delta(crate::agent::club::StreamDelta::Content("recovered locally"));
+            Ok(ClubReply::Text("recovered locally".into()))
+        }
+    }
+
+    let club = RefusedOnceNoRespond {
+        chat_calls: AtomicUsize::new(0),
+        respond_calls: AtomicUsize::new(0),
+        first_size: AtomicUsize::new(0),
+        second_size: AtomicUsize::new(0),
+        second_has_active_thinking: AtomicBool::new(false),
+    };
+    let mut history = vec![
+        ChatMsg::system("coding harness"),
+        ChatMsg::user("first turn"),
+    ];
+    for i in 0..16 {
+        let mut msg = ChatMsg::assistant(format!("earlier-turn-{i} {}", "x".repeat(300)));
+        msg.private_reasoning = Some(
+            format!(r#"[{{"type":"thinking","thinking":"old","signature":"OLD_SIG_{i}_{}"}}]"#, "z".repeat(1200))
+                .into(),
+        );
+        history.push(msg);
+    }
+    history.push(ChatMsg::user("second standalone turn"));
+    let mut active_asst = ChatMsg::assistant_calls_with_reasoning(
+        vec![crate::agent::club::ToolCall {
+            id: "call_active".into(),
+            name: "shell".into(),
+            args: json!({"command": "echo hi"}),
+        }],
+        Some(r#"[{"type":"thinking","thinking":"now","signature":"ACTIVE_SIG"}]"#.into()),
+    );
+    active_asst.content = "running check".into();
+    history.push(active_asst);
+    history.push(ChatMsg::tool("call_active", "hi"));
+
+    let (event_tx, _event_rx) = mpsc::channel();
+    let answer = run_turn(
+        &club,
+        &ToolRegistry::new(),
+        &mut history,
+        &AtomicBool::new(false),
+        Some(3),
+        &event_tx,
+    )
+    .expect("local reservation compaction must recover even with ANGEL_NO_AUTOCOMPACT=1");
+
+    assert_eq!(answer, "recovered locally");
+    assert_eq!(club.chat_calls.load(Ordering::SeqCst), 2);
+    assert_eq!(club.respond_calls.load(Ordering::SeqCst), 0);
+    assert!(
+        club.second_size.load(Ordering::SeqCst) < club.first_size.load(Ordering::SeqCst),
+        "expected shrink: {} -> {}",
+        club.first_size.load(Ordering::SeqCst),
+        club.second_size.load(Ordering::SeqCst)
+    );
+    assert!(
+        club.second_has_active_thinking.load(Ordering::SeqCst),
+        "active turn's signed thinking block must stay intact for Anthropic replay"
+    );
+    assert!(
+        history
+            .iter()
+            .any(|m| m.role == ChatRole::User && m.content.contains("first turn")),
+        "local reservation compaction must preserve the opening user task prompt: {history:?}"
+    );
+}
+
+#[test]
+fn configured_turn_deadline_clamps_to_deadline_epoch() {
+    let _guard = crate::tests::env_lock();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let _turn = EnvGuard::set("ANGEL_TURN_DEADLINE_SECS", "900");
+    let _margin = EnvGuard::set("ANGEL_DEADLINE_MARGIN_SECS", "30");
+    let _epoch = EnvGuard::set("ANGEL_DEADLINE_EPOCH", &(now + 120).to_string());
+    let capped = configured_turn_deadline_secs_for(false);
+    assert!(
+        (80..=95).contains(&capped),
+        "expected deadline clamped to ~90s, got {capped}"
+    );
+}
+
+#[test]
+fn append_test_after_write_skips_when_run_tests_disabled_by_allowlist() {
+    let _guard = crate::tests::env_lock();
+    let _tools = EnvGuard::set("ANGEL_TOOLS", "shell,write_file");
+    let _taw = EnvGuard::set("ANGEL_TASK_TEST_AFTER_WRITE", "1");
+    let _skill_hint = EnvGuard::set("ANGEL_SKILL_HINT", "0");
+    let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
+    let _first_write = EnvGuard::unset("ANGEL_FIRST_WRITE_CALLS");
+    let _competition = EnvGuard::unset("ANGEL_COMPETITION_MODE");
+    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
+    let _deferred = EnvGuard::set("ANGEL_DEFERRED_ACTION_LIMIT", "0");
+
+    let root = scratch("taw_allowlist_skip");
+    let mut registry = ToolRegistry::with_defaults();
+    registry.set_workspace(root.clone());
+
+    struct WriteOnceClub(AtomicUsize);
+    impl Club for WriteOnceClub {
+        fn respond(&self, _: &str) -> Result<String, String> {
+            Ok("unused".into())
+        }
+        fn label(&self) -> &str {
+            "write-once-allowlist"
+        }
+        fn chat(&self, messages: &[ChatMsg], tools: &[ToolDef]) -> Result<ClubReply, String> {
+            assert_eq!(
+                tools.iter().map(|t| t.name.as_str()).collect::<Vec<_>>(),
+                vec!["shell", "write_file"]
+            );
+            if self.0.fetch_add(1, Ordering::SeqCst) == 0 {
+                Ok(ClubReply::Calls(vec![ToolCall {
+                    id: "w1".into(),
+                    name: "write_file".into(),
+                    args: json!({"path": "hello.txt", "content": "ok\n"}),
+                }]))
+            } else {
+                assert!(
+                    !messages
+                        .iter()
+                        .any(|m| m.tool_calls.iter().any(|c| c.name == "run_tests")),
+                    "synthetic run_tests must not fire when run_tests is excluded by ANGEL_TOOLS"
+                );
+                Ok(ClubReply::Text("wrote hello.txt cleanly".into()))
+            }
+        }
+    }
+
+    let club = WriteOnceClub(AtomicUsize::new(0));
+    let mut history = vec![ChatMsg::user("write hello.txt")];
+    let (events, received) = mpsc::channel();
+    let answer = run_turn(
+        &club,
+        &registry,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(4),
+        &events,
+    )
+    .expect("write turn must complete cleanly without phantom run_tests");
+    assert_eq!(answer, "wrote hello.txt cleanly");
+    assert!(
+        !received.try_iter().any(|ev| matches!(
+            ev,
+            TurnEvent::ToolCall { ref name, .. } if name == "run_tests"
+        )),
+        "no synthetic run_tests event may be emitted"
+    );
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn book_cues_disabled_suppresses_post_edit_final_mile_and_braille_truncation() {
+    let _guard = crate::tests::env_lock();
+    let _tools = EnvGuard::set("ANGEL_TOOLS", "shell,write_file");
+    let _book_cues = EnvGuard::set("ANGEL_BOOK_CUES", "0");
+    let _taw = EnvGuard::set("ANGEL_TASK_TEST_AFTER_WRITE", "0");
+    let _skill_hint = EnvGuard::set("ANGEL_SKILL_HINT", "0");
+    let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
+    let _task = EnvGuard::set("ANGEL_TASK_MODE", "1");
+    let _competition = EnvGuard::unset("ANGEL_COMPETITION_MODE");
+    let _verify = EnvGuard::set("ANGEL_VERIFY_BEFORE_DONE", "0");
+    let _deferred = EnvGuard::set("ANGEL_DEFERRED_ACTION_LIMIT", "0");
+
+    let root = scratch("book_cues_disabled_clean");
+    let mut registry = ToolRegistry::with_defaults();
+    registry.set_workspace(root.clone());
+
+    struct TruncateThenWriteClub(AtomicUsize);
+    impl Club for TruncateThenWriteClub {
+        fn respond(&self, _: &str) -> Result<String, String> {
+            Ok("unused".into())
+        }
+        fn label(&self) -> &str {
+            "book-cues-disabled"
+        }
+        fn chat(&self, messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
+            match self.0.fetch_add(1, Ordering::SeqCst) {
+                0 => Err("response incomplete: configured request cap was 32000 tokens".into()),
+                1 => {
+                    assert!(
+                        messages.iter().all(|m| !m.content.contains("⠭⠙") && !m.content.contains("ledger://")),
+                        "truncation continuation must not inject Braille or ledger:// when ANGEL_BOOK_CUES=0: {messages:?}"
+                    );
+                    assert!(
+                        messages.iter().any(|m| m.content.contains("output token cap")),
+                        "expected plain-English output token cap continuation: {messages:?}"
+                    );
+                    Ok(ClubReply::Calls(vec![ToolCall {
+                        id: "w1".into(),
+                        name: "write_file".into(),
+                        args: json!({"path": "out.txt", "content": "ok\n"}),
+                    }]))
+                }
+                _ => {
+                    assert!(
+                        messages.iter().all(|m| {
+                            !m.content.contains("⠼⠊")
+                                && !m.content.contains("POST-EDIT")
+                                && !m.content.contains("⠼⠃")
+                                && !m.content.contains("FINAL-MILE")
+                        }),
+                        "post-edit and final-mile advisories must be suppressed when ANGEL_BOOK_CUES=0: {messages:?}"
+                    );
+                    Ok(ClubReply::Text("done cleanly".into()))
+                }
+            }
+        }
+    }
+
+    let club = TruncateThenWriteClub(AtomicUsize::new(0));
+    let mut history = vec![ChatMsg::user("write out.txt")];
+    let (events, _) = mpsc::channel();
+    let answer = run_turn(
+        &club,
+        &registry,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(3),
+        &events,
+    )
+    .expect("turn must complete cleanly with ANGEL_BOOK_CUES=0");
+    assert_eq!(answer, "done cleanly");
+    let _ = std::fs::remove_dir_all(root);
 }

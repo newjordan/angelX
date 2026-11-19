@@ -51,7 +51,15 @@ pub(crate) struct FailureDecision {
 }
 
 pub(crate) fn native_verdict(error: &str, ctx: &FailureContext) -> FailureVerdict {
-    let class = if is_context_overflow_error(error) {
+    // A gateway reservation refusal is the credit form of an oversized
+    // context: the request as built cannot be afforded, and the answer is
+    // to send a smaller one. The turn does that itself, sized from the
+    // amounts the gateway reports (see the reservation correction in
+    // `turn/mod.rs`), and asks again only with a request it has changed.
+    // So the verdict here is never "replay": the same bytes would be
+    // refused again, for nothing, for as long as they were sent.
+    let reservation = crate::agent::club::error_indicates_reservation_exceeds(error);
+    let class = if is_context_overflow_error(error) || reservation {
         FailureClass::Context
     } else if crate::agent::club::error_indicates_quota_exhausted(error) {
         FailureClass::Quota
@@ -65,6 +73,7 @@ pub(crate) fn native_verdict(error: &str, ctx: &FailureContext) -> FailureVerdic
         ctx.emitted_answer,
         is_recoverable_stream_error(error),
     ) && !ctx.output_cap_exhausted
+        && !reservation
         && retry_budget_allows(ctx.budget, ctx.attempt);
     let delay_ms = if retry {
         ctx.backoff_ms
@@ -107,7 +116,11 @@ pub(crate) fn failure_facts(error: &str, ctx: &FailureContext) -> serde_json::Va
         "auth": crate::agent::club::error_indicates_auth_failed(error),
         "quota": crate::agent::club::error_indicates_quota_exhausted(error),
         "rejected": rejected_request_text(&lower),
-        "context": is_context_overflow_error(error),
+        "gw_stop": crate::agent::club::error_indicates_gateway_stop(error),
+        "gw_retry": crate::agent::club::error_indicates_gateway_retryable(error),
+        "gw_resv": crate::agent::club::error_indicates_reservation_exceeds(error),
+        "context": is_context_overflow_error(error)
+            || crate::agent::club::error_indicates_reservation_exceeds(error),
         "answered": ctx.emitted_answer,
         "capped": ctx.output_cap_exhausted,
         "attempt": whole(ctx.attempt, u32::MAX - 1),
@@ -144,11 +157,27 @@ pub(crate) fn decide_failure(
     ctx: &FailureContext,
 ) -> FailureDecision {
     let native = native_verdict(error, ctx);
+    // A metering gateway states its recovery decision in the error body
+    // (`run_action`, `retryable`, a reservation code). That is the
+    // provider's own contract for this failure, not a policy preference:
+    // a leg verdict that contradicts the native reading of it falls back
+    // to native instead of overriding the gateway.
+    let gateway_contract = crate::agent::club::error_indicates_gateway_stop(error)
+        || crate::agent::club::error_indicates_gateway_retryable(error)
+        || crate::agent::club::error_indicates_reservation_exceeds(error);
     let (verdict, leg) = decide(
         registry,
         "errors",
         &failure_facts(error, ctx),
-        |live: &FailureVerdict| within_native(live, &native),
+        |live: &FailureVerdict| {
+            within_native(live, &native)?;
+            if gateway_contract && live.retry != native.retry {
+                return Err(
+                    "the leg overrides the gateway's stated recovery contract".into(),
+                );
+            }
+            Ok(())
+        },
         || native.clone(),
     );
     let declined = native.retry && !verdict.retry;

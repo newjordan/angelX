@@ -89,6 +89,25 @@ struct IterLog {
     error: Option<String>,
 }
 
+const EMPTY_ROUND: &str = "round returned no text (output spent before an answer)";
+
+/// Tells whoever asked that part of the deliberation never answered, so a thin result is
+/// not mistaken for a thorough one.
+fn empty_rounds_note(st: &DeliState) -> Option<String> {
+    let empty = st
+        .log
+        .iter()
+        .filter(|round| round.error.as_deref() == Some(EMPTY_ROUND))
+        .count();
+    (empty > 0).then(|| {
+        format!(
+            "\n\n[deli] {empty} of {} rounds returned no text: the consulted model spent its \
+             output allowance before answering. The answer above rests on the other rounds.",
+            st.log.len()
+        )
+    })
+}
+
 #[derive(Default)]
 struct DeliState {
     iteration: usize,
@@ -187,6 +206,13 @@ impl DeliClub {
             let mut round_error = None;
             let (direction, reported, mut leads) =
                 match self.call_cancellable(&system, &[ChatMsg::user(prompt)], cancel) {
+                    // A round that spends its whole output allowance before answering
+                    // comes back empty. Recorded as a fault: silence would read as
+                    // "looked and found nothing".
+                    Ok(out) if out.trim().is_empty() => {
+                        round_error = Some(EMPTY_ROUND.to_string());
+                        (String::new(), Vec::new(), Vec::new())
+                    }
                     Ok(out) => parse_iteration_sections(&out),
                     Err(e) => {
                         round_error = Some(e);
@@ -406,8 +432,11 @@ impl DeliClub {
         }
 
         let st = self.iterate(&problem, &base_sys, cancel);
-        let answer =
+        let mut answer =
             self.synthesize_cancellable(&base_sys, &problem, &st.findings, &st.hypotheses, cancel)?;
+        if let Some(note) = empty_rounds_note(&st) {
+            answer.push_str(&note);
+        }
         if stream {
             on_delta(StreamDelta::Content(&answer));
         }

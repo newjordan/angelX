@@ -5,7 +5,10 @@
 //! red (37 identical in a row) and rust-robot-name sent `echo hi` 60 times
 //! under a pasted-back system prompt, both to the hop cap.
 //!
-//! The guard watches each hop's batch and its text. A batch repeated
+//! The guard watches each hop's batch and its text. A hop that carried
+//! private reasoning is never silence: the diagnosis ran where the guard
+//! cannot see it, and a reasoning seat's textless tool calls are its normal
+//! way of working. A batch repeated
 //! [`SAME_CALL_LIMIT`] times in a row with no new text, or
 //! [`SILENT_HOP_LIMIT`] tool hops in a row with no text at all, earns one short
 //! harness turn in plain words asking for a diagnosis before the next call, and
@@ -30,11 +33,33 @@ pub(super) struct SilenceGuard {
 }
 
 impl SilenceGuard {
-    pub(super) fn observe(&mut self, text: Option<&str>, calls: &[ToolCall]) -> Option<String> {
+    /// `reasoned` is true when the hop carried private reasoning. A seat that
+    /// reasons privately diagnoses without visible text, so its textless hops
+    /// are not silence: both counts restart and no note is earned. The guard
+    /// exists for seats with thinking off, where the text is all there is.
+    pub(super) fn observe(
+        &mut self,
+        text: Option<&str>,
+        calls: &[ToolCall],
+        reasoned: bool,
+    ) -> Option<String> {
         if calls.is_empty() {
             return None;
         }
         let text = text.map(str::trim).unwrap_or_default();
+        if reasoned {
+            self.same = 0;
+            self.silent = 0;
+            self.last_text = Some(text.to_string());
+            self.last_batch = Some(
+                calls
+                    .iter()
+                    .map(book::l_loops::toolcall_storm_signature)
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            );
+            return None;
+        }
         let quiet = text.is_empty() || self.last_text.as_deref() == Some(text);
         let batch = calls
             .iter()

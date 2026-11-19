@@ -2736,3 +2736,23 @@ fn responses_shared_parse_preserves_replay_raw_gate_and_reset() {
     }
     assert_eq!(collector.finish()[0]["type"], "message");
 }
+
+#[test]
+fn responses_error_preserves_gateway_contract_fields() {
+    let stop_body = r#"{"error":{"message":"Budget exhausted"},"code":"model_budget_exhausted","run_action":"stop","retryable":false}"#;
+    let stop_err = describe_response_error(402, stop_body, false);
+    assert!(
+        crate::agent::club::error_indicates_gateway_stop(&stop_err),
+        "gateway stop must survive Responses error formatting: {stop_err}"
+    );
+    let resv_body = r#"{"error":{"message":"Reservation exceeds remaining budget"},"code":"model_reservation_exceeds_remaining_budget","run_action":"continue","available_usd":0.52,"required_reservation_usd":0.81}"#;
+    let resv_err = describe_response_error(400, resv_body, false);
+    assert!(
+        crate::agent::club::error_indicates_reservation_exceeds(&resv_err),
+        "gateway reservation must survive Responses error formatting: {resv_err}"
+    );
+    let parsed = crate::agent::club::reservation_refusal(&resv_err)
+        .expect("reservation refusal fields must parse from Responses error");
+    assert!((parsed.required - 0.81).abs() < 1e-6, "{parsed:?}");
+    assert!((parsed.available - 0.52).abs() < 1e-6, "{parsed:?}");
+}

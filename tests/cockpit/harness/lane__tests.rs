@@ -55,14 +55,20 @@ fn treebeard_lowers_offload_floors_when_env_unset() {
     let _g = env_lock();
     let _cm = EnvGuard::set("ANGEL_HANDLE_CODE_MODE_MIN_BYTES", None);
     let _sc = EnvGuard::set("ANGEL_HANDLE_SUBCALL_MIN_BYTES", None);
+    let _cu = EnvGuard::set("ANGEL_COMPACT_URL", None);
 
     let _def = EnvGuard::set("ANGEL_LANE", Some("default"));
     assert_eq!(code_mode_offload_min_bytes(), 4096);
-    assert_eq!(lane_subcall_offload_min_bytes(), 2048);
+    assert_eq!(lane_subcall_offload_min_bytes(), 16 * 1024);
 
     let _tb = EnvGuard::set("ANGEL_LANE", None);
     assert_eq!(code_mode_offload_min_bytes(), 1024);
     assert_eq!(lane_subcall_offload_min_bytes(), 512);
+
+    // An explicit helper endpoint means no cheap local digester is assumed:
+    // small sub-call results ride back inline.
+    let _helper = EnvGuard::set("ANGEL_COMPACT_URL", Some("http://127.0.0.1:9"));
+    assert_eq!(lane_subcall_offload_min_bytes(), 16 * 1024);
 
     let _explicit = EnvGuard::set("ANGEL_HANDLE_CODE_MODE_MIN_BYTES", Some("9999"));
     assert_eq!(code_mode_offload_min_bytes(), 9999);

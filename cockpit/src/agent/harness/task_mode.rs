@@ -23,6 +23,9 @@ pub(crate) struct TaskCliArgs {
     pub(crate) max_hops: Option<usize>,
     pub(crate) deadline_secs: Option<usize>,
     pub(crate) tool_profile: Option<String>,
+    pub(crate) tools: Option<String>,
+    pub(crate) system_prompt: Option<String>,
+    pub(crate) system_prompt_file: Option<PathBuf>,
     pub(crate) rollout_capture: Option<String>,
     pub(crate) require_rollout: bool,
     pub(crate) require_rendered_output: bool,
@@ -291,6 +294,69 @@ pub(crate) fn parse_task_args(
                 }
                 out.tool_profile = Some(value);
             }
+            "--tools" => {
+                if !seen.insert("--tools") {
+                    return Err(TaskCliError::invalid(
+                        "--tools may be supplied only once",
+                        out,
+                    ));
+                }
+                let Some(value) = args.next() else {
+                    return Err(TaskCliError::missing(
+                        "--tools requires a comma-separated list of tool names",
+                        out,
+                    ));
+                };
+                let Some(normalized) = normalize_tools_list(&value) else {
+                    return Err(TaskCliError::invalid(
+                        "--tools requires one or more valid comma-separated tool names",
+                        out,
+                    ));
+                };
+                out.tools = Some(normalized);
+            }
+            "--system-prompt" => {
+                if !seen.insert("--system-prompt") {
+                    return Err(TaskCliError::invalid(
+                        "--system-prompt may be supplied only once",
+                        out,
+                    ));
+                }
+                let Some(value) = args.next() else {
+                    return Err(TaskCliError::missing(
+                        "--system-prompt requires text",
+                        out,
+                    ));
+                };
+                if value.trim().is_empty() {
+                    return Err(TaskCliError::invalid(
+                        "--system-prompt must not be blank",
+                        out,
+                    ));
+                }
+                out.system_prompt = Some(value);
+            }
+            "--system-prompt-file" => {
+                if !seen.insert("--system-prompt-file") {
+                    return Err(TaskCliError::invalid(
+                        "--system-prompt-file may be supplied only once",
+                        out,
+                    ));
+                }
+                let Some(value) = args.next() else {
+                    return Err(TaskCliError::missing(
+                        "--system-prompt-file requires a file path",
+                        out,
+                    ));
+                };
+                if value.trim().is_empty() {
+                    return Err(TaskCliError::invalid(
+                        "--system-prompt-file requires a non-empty path",
+                        out,
+                    ));
+                }
+                out.system_prompt_file = Some(PathBuf::from(value));
+            }
             "--rollout" => {
                 if !seen.insert("--rollout") {
                     return Err(TaskCliError::invalid(
@@ -353,6 +419,12 @@ pub(crate) fn parse_task_args(
             out,
         ));
     }
+    if out.system_prompt.is_some() && out.system_prompt_file.is_some() {
+        return Err(TaskCliError::invalid(
+            "--system-prompt and --system-prompt-file cannot both be supplied",
+            out,
+        ));
+    }
     if out.require_rollout && !matches!(out.rollout_capture.as_deref(), Some("shadow" | "local")) {
         return Err(TaskCliError::invalid(
             "--require-rollout requires --rollout shadow or --rollout local",
@@ -360,6 +432,27 @@ pub(crate) fn parse_task_args(
         ));
     }
     Ok(out)
+}
+
+pub(crate) fn normalize_tools_list(raw: &str) -> Option<String> {
+    let mut items = Vec::new();
+    for part in raw.split(',') {
+        let name = part.trim();
+        if name.is_empty() {
+            continue;
+        }
+        if name.len() > 64
+            || !name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+        {
+            return None;
+        }
+        if !items.iter().any(|existing| existing == name) {
+            items.push(name.to_string());
+        }
+    }
+    (!items.is_empty()).then(|| items.join(","))
 }
 
 fn valid_runner_identity(value: &str) -> bool {

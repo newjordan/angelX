@@ -1431,6 +1431,19 @@ impl App {
                         == crate::agent::harness::TurnStopReason::Interrupt
                         && thinking.steer_interrupt_fired
                         && !self.steer_queue.is_empty();
+                    // A turn that ended in an answer is continued by the next iteration. So
+                    // is one that was stopped with its conversation whole (its time budget, a
+                    // stalled stream, an interrupt): an ordinary turn keeps the conversation
+                    // after such a stop, and a resumed loop goes on in it the same way.
+                    if crate::drive::loop_carry::continues_after(stop_reason) {
+                        crate::drive::loop_carry::keep(
+                            &self.loop_ctl.id,
+                            self.loop_ctl.podrace,
+                            new_history,
+                        );
+                    } else {
+                        crate::drive::loop_carry::clear();
+                    }
                     if completed || steer_release {
                         self.loop_harvest_with_tools(reply, loop_tools.unwrap_or_default());
                     } else {

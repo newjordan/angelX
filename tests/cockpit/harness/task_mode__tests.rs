@@ -1950,3 +1950,54 @@ fn a_long_file_read_up_front_as_context_arrives_whole() {
     assert_eq!(sent.matches("line ").count(), 650);
     let _ = std::fs::remove_dir_all(&base);
 }
+
+#[test]
+fn task_mode_parses_tools_and_system_prompt_flags_and_rejects_conflicts() {
+    let args = parse_task_args(
+        "--task-json",
+        [
+            "--tools",
+            "shell, write_file, shell",
+            "--system-prompt",
+            "Be concise.",
+            "solve the task",
+        ]
+        .into_iter()
+        .map(str::to_string),
+    )
+    .unwrap();
+    assert_eq!(args.tools.as_deref(), Some("shell,write_file"));
+    assert_eq!(args.system_prompt.as_deref(), Some("Be concise."));
+    assert!(args.system_prompt_file.is_none());
+
+    let file_args = parse_task_args(
+        "--task",
+        ["--system-prompt-file", "/tmp/prompt.md", "go"]
+            .into_iter()
+            .map(str::to_string),
+    )
+    .unwrap();
+    assert_eq!(
+        file_args.system_prompt_file.as_deref(),
+        Some(Path::new("/tmp/prompt.md"))
+    );
+
+    for bad in [
+        vec!["--tools", "  ", "go"],
+        vec!["--tools", "bad tool!", "go"],
+        vec!["--tools", "shell", "--tools", "write_file", "go"],
+        vec!["--system-prompt", "  ", "go"],
+        vec![
+            "--system-prompt",
+            "a",
+            "--system-prompt-file",
+            "/tmp/p.md",
+            "go",
+        ],
+    ] {
+        assert!(
+            parse_task_args("--task-json", bad.iter().copied().map(str::to_string)).is_err(),
+            "should reject: {bad:?}"
+        );
+    }
+}

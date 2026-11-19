@@ -320,6 +320,8 @@ where
     if launch.driver.is_some() || launch.effort.is_some() {
         app.launch_route = Some(binding.clone());
     }
+    // `--goal` / `--loop`: the cockpit sets its goal and starts its loop itself.
+    let mut launch_loop = crate::drive::unattended::LaunchLoop::from_launch(&launch);
     if let Some(prompt) = launch.prompt {
         // Establish required session state before accepting the initial turn.
         // This stores bootstrap history only, never a pending launch prompt.
@@ -438,6 +440,9 @@ where
             let input_us = input_started.map_or(0, |start| start.elapsed().as_micros());
             let advance_started = frame_timing.as_ref().map(|_| Instant::now());
             app.advance();
+            if let Some(launch_loop) = launch_loop.as_mut() {
+                launch_loop.step(&mut app);
+            }
             // The goddess hears what changed (nothing while she is away).
             crate::ui::angelface::observe(&mut app);
             sync_game_keyboard(&app, &mut game_keyboard_active)?;
@@ -630,6 +635,10 @@ INTERACTIVE OPTIONS
   --effort LEVEL           Native effort, or pi:LEVEL with the checked Pi catalog
   --prompt TEXT            One literal initial user-turn enqueue after readiness
   --draft TEXT             Composer only; no initial turn
+  --goal TEXT              Set standing goal at startup (like /goal TEXT)
+  --loop TEXT              Start a loop at startup (like /loop TEXT)
+  --unattended             Run with no terminal and exit when the loop ends (requires --loop)
+  --tools LIST             Explicit comma-separated allowlist of tools to advertise
   --resume [ID]            Resume without initial text
 
 TASK OPTIONS
@@ -643,6 +652,9 @@ TASK OPTIONS
   --max-hops N             Tool-hop ceiling (default 0, unbounded); positive values opt in
   --deadline-secs N        Wall-clock ceiling (default 0, unbounded); positive values opt in
   --tool-profile PROFILE   auto, essential (or lean), or full
+  --tools LIST             Explicit comma-separated allowlist of tools to advertise
+  --system-prompt TEXT     Replace the default task system prompt with TEXT
+  --system-prompt-file F   Replace the default task system prompt with file F
   --rollout MODE           off, shadow metadata, or local semantic capture
   --require-rollout        Fail the turn if requested capture cannot be sealed
   --require-rendered-output  Record unverified rendered-output acceptance (does not certify frames)
@@ -728,6 +740,10 @@ fn apply_task_cli_runtime_overrides(task_args: &harness::TaskCliArgs) {
     if let Some(profile) = task_args.tool_profile.as_deref() {
         // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::set_var("ANGEL_TOOL_SCHEMA_PROFILE", profile) };
+    }
+    if let Some(tools) = task_args.tools.as_deref() {
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("ANGEL_TOOLS", tools) };
     }
     if let Some(capture) = task_args.rollout_capture.as_deref() {
         // TODO: Audit that the environment access only happens in single-threaded code.
@@ -1295,7 +1311,7 @@ fn main() -> std::io::Result<()> {
             }
             return Ok(());
         }
-        if arg == "--loop" || arg == "--rollout" {
+        if arg == "--rollout" {
             let bag = Bag::standard();
             check_headless_route(
                 bag.in_hand().as_ref(),
@@ -1585,18 +1601,84 @@ fn main() -> std::io::Result<()> {
                 "identity_prewarm_ms",
                 process_started.elapsed().as_millis(),
             );
+            let custom_system_prompt = match (&task_args.system_prompt, &task_args.system_prompt_file)
+            {
+                (Some(text), _) => Some(text.clone()),
+                (_, Some(path)) => match std::fs::read_to_string(path) {
+                    Ok(text) if !text.trim().is_empty() => Some(text),
+                    Ok(_) => {
+                        let message = format!(
+                            "--system-prompt-file {} is empty",
+                            path.display()
+                        );
+                        if task_args.json {
+                            let envelope = harness::TaskJsonEnvelope::from_startup_failure(
+                                &task_args,
+                                workspace,
+                                startup_started.elapsed().as_millis(),
+                                harness::TaskStartupStopReason::InvalidArguments,
+                                message,
+                            );
+                            println!(
+                                "{}",
+                                serde_json::to_string(&envelope)
+                                    .expect("task result envelope must serialize")
+                            );
+                        } else {
+                            eprintln!("angel --task: {message}");
+                        }
+                        std::process::exit(2);
+                    }
+                    Err(error) => {
+                        let message = format!(
+                            "cannot read --system-prompt-file {}: {error}",
+                            path.display()
+                        );
+                        if task_args.json {
+                            let envelope = harness::TaskJsonEnvelope::from_startup_failure(
+                                &task_args,
+                                workspace,
+                                startup_started.elapsed().as_millis(),
+                                harness::TaskStartupStopReason::InvalidArguments,
+                                message,
+                            );
+                            println!(
+                                "{}",
+                                serde_json::to_string(&envelope)
+                                    .expect("task result envelope must serialize")
+                            );
+                        } else {
+                            eprintln!("angel --task: {message}");
+                        }
+                        std::process::exit(2);
+                    }
+                },
+                (None, None) => None,
+            };
             let project_doc_started = std::time::Instant::now();
-            let skills = harness::load_skills_for(&workspace);
-            let vision_hint = crate::agent::tools::vision::vision_sidecar_prompt_hint_in(
-                &tools::vision::VisionBackend::new(bag.codex_startup.as_deref()),
-                club.as_ref(),
-            );
-            let mut history = bootstrap::build_task_history(
-                &specialists,
-                &skills,
-                &workspace,
-                vision_hint.as_deref(),
-            );
+            let skills = if custom_system_prompt.is_some() {
+                Vec::new()
+            } else {
+                harness::load_skills_for(&workspace)
+            };
+            let vision_hint = if custom_system_prompt.is_some() {
+                None
+            } else {
+                crate::agent::tools::vision::vision_sidecar_prompt_hint_in(
+                    &tools::vision::VisionBackend::new(bag.codex_startup.as_deref()),
+                    club.as_ref(),
+                )
+            };
+            let mut history = if let Some(custom) = custom_system_prompt.as_ref() {
+                vec![ChatMsg::system(custom.clone())]
+            } else {
+                bootstrap::build_task_history(
+                    &specialists,
+                    &skills,
+                    &workspace,
+                    vision_hint.as_deref(),
+                )
+            };
             harness::note_task_startup_phase(
                 "project_doc_ms",
                 project_doc_started.elapsed().as_millis(),
@@ -1614,7 +1696,11 @@ fn main() -> std::io::Result<()> {
             );
             tools::self_model::SelfMapTool::register_headless(&mut registry);
             registry.set_skill_index(&skills);
-            let skill_hint = registry.relevant_skill_hint(prompt);
+            let skill_hint = if custom_system_prompt.is_some() {
+                None
+            } else {
+                registry.relevant_skill_hint(prompt)
+            };
             if !skills.is_empty() {
                 registry.register(Box::new(harness::SkillTool::for_workspace(
                     skills,
@@ -1631,7 +1717,11 @@ fn main() -> std::io::Result<()> {
             crate::agent::hotload::start_headless();
             harness::note_task_startup_phase("registry_ms", registry_started.elapsed().as_millis());
             let recon_started = std::time::Instant::now();
-            let task_recon = harness::task_recon_message(&registry, prompt);
+            let task_recon = if custom_system_prompt.is_some() {
+                None
+            } else {
+                harness::task_recon_message(&registry, prompt)
+            };
             harness::note_task_startup_phase(
                 "workspace_recon_ms",
                 recon_started.elapsed().as_millis(),
@@ -1656,9 +1746,12 @@ fn main() -> std::io::Result<()> {
             // same carrier compaction uses, so it survives future compactions
             // natively and never outranks the operator's request below it.
             // `ANGEL_TASK_HANDOFF_WARM=0` opts out (e.g. deliberately-cold ablations).
-            let handoff_warm = std::env::var("ANGEL_TASK_HANDOFF_WARM")
-                .map(|value| value.trim() != "0")
-                .unwrap_or(true);
+            // When an explicit `--system-prompt` is supplied, warm handoff is opt-in
+            // (`ANGEL_TASK_HANDOFF_WARM=1`) so the caller controls the opening prefix.
+            let handoff_warm = match std::env::var("ANGEL_TASK_HANDOFF_WARM") {
+                Ok(value) => value.trim() != "0",
+                Err(_) => custom_system_prompt.is_none(),
+            };
             if handoff_warm
                 && let Some(note) = crate::agent::tools::plan::load_workspace_handoff(&workspace)
             {
@@ -1684,7 +1777,7 @@ fn main() -> std::io::Result<()> {
                 .into();
             }
             let atlas = registry.atlas();
-            if atlas.enabled() {
+            if custom_system_prompt.is_none() && atlas.enabled() {
                 let lens =
                     atlas.build_lens(&atlas_query, std::iter::once(history[0].content.as_ref()));
                 crate::knowledge::atlas::replace_lens_message(&mut history, lens);
@@ -1692,7 +1785,9 @@ fn main() -> std::io::Result<()> {
             if let Some(recon) = task_recon {
                 history.push(recon);
             }
-            harness::preread_small_workspace(&registry, &workspace, &mut history);
+            if custom_system_prompt.is_none() {
+                harness::preread_small_workspace(&registry, &workspace, &mut history);
+            }
             let cancel = std::sync::atomic::AtomicBool::new(false);
             let max_hops = harness::configured_max_hops();
             let competition = harness::competition_mode_active(&history);
@@ -1920,6 +2015,10 @@ fn main() -> std::io::Result<()> {
         )
     })?;
     let workspace = workspace.expect("interactive workspace was checked before startup");
+    if let Some(tools) = launch.tools.as_deref() {
+        // SAFETY: single-threaded startup before any session host or cockpit thread spawns.
+        unsafe { std::env::set_var("ANGEL_TOOLS", tools) };
+    }
     // An explicit route/text is checked before the screen opens so a bad
     // selector fails cleanly. A plain launch opens the screen first, as
     // before: the Bag can take a moment and the cockpit should be visible.
@@ -1927,6 +2026,10 @@ fn main() -> std::io::Result<()> {
         || launch.model.is_some()
         || launch.effort.is_some()
         || launch.prompt.is_some();
+    // `--unattended`: no terminal at all; the process ends when the loop does.
+    if launch.unattended {
+        return crate::drive::unattended::run(launch, workspace);
+    }
     // A session's own process (`--session-host` started it): the cockpit
     // under a host with no window, drawn by the windows that attach.
     #[cfg(feature = "glass")]

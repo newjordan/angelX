@@ -250,6 +250,22 @@ fn tool_schema_profile_from_env() -> ToolSchemaProfile {
     }
 }
 
+/// Optional explicit tool allowlist (`ANGEL_TOOLS=shell,write_file,...` or `--tools`).
+/// When non-empty, only the named registered tools are advertised and dispatched;
+/// neither `tool_search`, `with_activated_tools`, nor `with_research_tools` can grow
+/// the advertised list mid-conversation, keeping the tool prefix small and cache-stable.
+pub(crate) fn explicit_tool_allowlist() -> Option<Vec<String>> {
+    let raw = std::env::var("ANGEL_TOOLS").ok()?;
+    let mut out = Vec::new();
+    for item in raw.split(',') {
+        let name = item.trim();
+        if !name.is_empty() && !out.iter().any(|existing| existing == name) {
+            out.push(name.to_string());
+        }
+    }
+    (!out.is_empty()).then_some(out)
+}
+
 fn bounded_task_schemas_enabled() -> bool {
     #[cfg(not(test))]
     {
@@ -1204,12 +1220,31 @@ impl ToolRegistry {
         self.defs_for_turn(window, bounded_task, false)
     }
 
+    fn explicit_allowlist_defs(&self, allowed: &[String]) -> Vec<ToolDef> {
+        let lean = tool_schema_profile() == ToolSchemaProfile::Essential;
+        self.tools
+            .iter()
+            .filter(|tool| allowed.iter().any(|name| name == tool.name()))
+            .map(|tool| {
+                let def = tool.def();
+                if lean {
+                    lean_advertised_tool_def(&def)
+                } else {
+                    def
+                }
+            })
+            .collect()
+    }
+
     pub(crate) fn defs_for_turn(
         &self,
         window: Option<usize>,
         bounded_task: bool,
         competition: bool,
     ) -> Vec<ToolDef> {
+        if let Some(allowed) = explicit_tool_allowlist() {
+            return self.explicit_allowlist_defs(&allowed);
+        }
         let defs = self.trimmed_defs_for_turn(window, bounded_task, competition);
         if competition {
             self.with_research_tools(defs)
@@ -1251,6 +1286,9 @@ impl ToolRegistry {
         competition: bool,
         metered_sota: bool,
     ) -> Vec<ToolDef> {
+        if let Some(allowed) = explicit_tool_allowlist() {
+            return self.explicit_allowlist_defs(&allowed);
+        }
         if metered_sota && tool_schema_profile() == ToolSchemaProfile::Auto {
             let (full, _) = self.defs_arc_and_tokens();
             let defs = self.lean_defs(full.as_ref(), true);
@@ -1317,6 +1355,14 @@ impl ToolRegistry {
         cancel: Option<&AtomicBool>,
         progress: Option<Arc<ToolOutputProgress>>,
     ) -> Result<String, String> {
+        if let Some(allowed) = explicit_tool_allowlist()
+            && !allowed.iter().any(|entry| entry == name)
+        {
+            return Err(format!(
+                "tool `{name}` is not enabled in this run (enabled tools: {})",
+                allowed.join(", ")
+            ));
+        }
         crate::agent::tools::build::settle_pending_pins();
         super::exec::with_call_budget(crate::agent::tools::build::task_call_budget(), || {
             let watch = self.live_watch(name, args);
@@ -1452,6 +1498,11 @@ impl ToolRegistry {
     }
 
     pub(crate) fn has_tool(&self, name: &str) -> bool {
+        if let Some(allowed) = explicit_tool_allowlist()
+            && !allowed.iter().any(|entry| entry == name)
+        {
+            return false;
+        }
         self.tools.iter().any(|tool| tool.name() == name)
     }
 

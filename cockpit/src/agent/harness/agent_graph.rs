@@ -276,9 +276,9 @@ impl GraphTraceTerminationV1 {
             TurnStopReason::CaptureFailure | TurnStopReason::CheckpointFailure => {
                 GraphTraceTerminationKind::CaptureFailure
             }
-            TurnStopReason::ExecutionBlocked | TurnStopReason::NeedsPro => {
-                GraphTraceTerminationKind::PolicyGuard
-            }
+            TurnStopReason::ExecutionBlocked
+            | TurnStopReason::NeedsPro
+            | TurnStopReason::Declined => GraphTraceTerminationKind::PolicyGuard,
         };
         Self {
             kind,

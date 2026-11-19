@@ -1156,9 +1156,21 @@ pub(crate) fn compaction_summarizer() -> Option<crate::agent::club::HttpClub> {
     let key = std::env::var("ANGEL_COMPACT_KEY")
         .ok()
         .filter(|s| !s.trim().is_empty());
-    Some(crate::agent::club::HttpClub::new(
-        "compact", url, model, key,
-    ))
+    let club = crate::agent::club::HttpClub::new("compact", url, model, key);
+    // A helper seat reached through a Messages route (a gateway relaying the
+    // task's own model, say) must speak that wire; `ANGEL_COMPACT_API`
+    // names it explicitly, never guessed from the model id.
+    let club = match std::env::var("ANGEL_COMPACT_API")
+        .ok()
+        .map(|api| api.trim().to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("anthropic-messages" | "messages" | "anthropic") => club
+            .with_provider_contract(crate::agent::club::ProviderContract::Anthropic)
+            .with_anthropic_messages(None),
+        _ => club,
+    };
+    Some(club)
 }
 
 /// `⠎⠛` heads every auto-recall note; its framing is the ledger page.
@@ -2272,6 +2284,159 @@ fn maybe_compact_for_turn_measured(
         "{done}; operator task/answer contract retention recorded"
     )));
     (true, true)
+}
+
+/// Drops signed thinking blocks from earlier completed turns (strictly before
+/// the last standalone `User` turn boundary). Within the active tool-use turn
+/// after that user message, thinking blocks are kept verbatim so provider wire
+/// contracts (e.g. Anthropic Messages tool-use replay) remain intact.
+fn shed_prior_turn_reasoning(history: &mut [ChatMsg]) -> usize {
+    let last_standalone_user = history
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(idx, msg)| {
+            msg.role == ChatRole::User
+                && (*idx == 0 || history[idx - 1].role != ChatRole::Tool)
+        })
+        .map(|(idx, _)| idx);
+    let Some(cutoff) = last_standalone_user else {
+        return 0;
+    };
+    let mut dropped = 0usize;
+    for msg in &mut history[..cutoff] {
+        if msg.role == ChatRole::Assistant && msg.private_reasoning.take().is_some() {
+            dropped += 1;
+        }
+    }
+    dropped
+}
+
+/// Model-free, zero-credit compaction for gateway budget-reservation refusals.
+///
+/// Unlike [`maybe_compact_for_turn`], this never calls a metered LLM summarizer
+/// (which would hit the same gateway that just refused credit), works even when
+/// routine autocompact is disabled, drops thinking payloads from earlier
+/// completed turns, and progressively tightens the retained recent window until
+/// the request fits `target` or cannot shrink further without breaking tool
+/// pairing.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn compact_for_reservation_local(
+    history: &mut Vec<ChatMsg>,
+    target: usize,
+    keep_recent: usize,
+    keep_recent_tokens: usize,
+    tools: &[ToolDef],
+    registry: &ToolRegistry,
+    events: &mpsc::Sender<TurnEvent>,
+) -> bool {
+    let before = estimate_tokens(history) + estimate_tool_tokens(tools);
+    if target == 0 || before <= target {
+        return false;
+    }
+    let mut rewritten = remove_auto_recall_notes(history);
+    let shed = shed_prior_turn_reasoning(history);
+    if shed > 0 {
+        rewritten = true;
+    }
+    let aged = age_tool_results_at_boundary(history);
+    if aged.results > 0 || aged.excerpts_dropped > 0 {
+        rewritten = true;
+    }
+
+    let passes = [
+        (keep_recent.max(2), keep_recent_tokens.min(target / 2)),
+        (keep_recent.min(4).max(2), keep_recent_tokens.min(target / 4)),
+        (2usize, 0usize),
+    ];
+    for (keep_msgs, keep_toks) in passes {
+        let now = estimate_tokens(history) + estimate_tool_tokens(tools);
+        if now <= target {
+            break;
+        }
+        let Some((sys_end, window_end)) = crate::agent::compaction::select_window_with_token_tail(
+            history, keep_msgs, keep_toks,
+        ) else {
+            continue;
+        };
+        if estimate_tokens(&history[sys_end..window_end]) == 0 {
+            continue;
+        }
+        let mut task_anchors = compaction_task_anchors(history, sys_end, window_end, target);
+        if task_anchors.is_empty()
+            && let Some(opening_user) = history[sys_end..window_end]
+                .iter()
+                .find(|m| m.role == ChatRole::User && !m.content.trim().is_empty())
+        {
+            let max_bytes = (target / 4).saturating_mul(4).clamp(1_024, 8_192);
+            let text = opening_user.content.as_ref();
+            let anchor = if text.len() <= max_bytes {
+                text.to_string()
+            } else {
+                let mut end = max_bytes;
+                while end > 0 && !text.is_char_boundary(end) {
+                    end -= 1;
+                }
+                format!("{}\n…[task briefing truncated for credit reservation]", &text[..end])
+            };
+            task_anchors.push(anchor);
+        }
+        let turn_context_anchor = compaction_turn_context_anchor(history, sys_end, window_end);
+        let wing = crate::agent::compaction::project_wing_for(registry.current_workspace());
+        let source = crate::agent::compaction::provenance(&registry.session_id, "reservation-compact");
+        let live = registry.store.is_live();
+        let Some(result) = crate::agent::compaction::compact_window_fast(
+            &compaction_summary_window(&history[sys_end..window_end]),
+            &wing,
+            &source,
+            target,
+            live,
+        ) else {
+            continue;
+        };
+        let recovery_context =
+            crate::agent::club::recovery_context_refs(&history[sys_end..window_end]);
+        let book_memory = book::continuity::compaction_memory(&history[sys_end..window_end]);
+        let Ok(note) = park_compaction_window(&history[sys_end..window_end], &result.inline_note)
+        else {
+            continue;
+        };
+        let note = constraint_retention_note(
+            note,
+            &history[sys_end..window_end],
+            &task_anchors,
+            &history[window_end..],
+        );
+        history.splice(
+            sys_end..window_end,
+            compaction_replacement(
+                note,
+                task_anchors,
+                result.plan_snapshot,
+                result.handoff_snapshot,
+                turn_context_anchor,
+                recovery_context,
+                book_memory,
+            ),
+        );
+        rewritten = true;
+    }
+
+    if fit_tool_results_to_budget(history, target, tools) > 0 {
+        rewritten = true;
+    }
+    if rewritten {
+        super::turn::background::observe(history);
+    }
+    let after = estimate_tokens(history) + estimate_tool_tokens(tools);
+    if after < before {
+        let _ = events.send(TurnEvent::Notice(format!(
+            "compacted locally for credit reservation ({before} → {after} estimated tokens, target {target}, model-free)"
+        )));
+        true
+    } else {
+        false
+    }
 }
 
 // ---------------------------------------------------------------------------

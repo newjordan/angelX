@@ -84,11 +84,26 @@ pub(crate) fn code_mode_offload_min_bytes() -> usize {
 }
 
 pub(crate) fn lane_subcall_offload_min_bytes() -> usize {
-    env_usize_opt("ANGEL_HANDLE_SUBCALL_MIN_BYTES").unwrap_or(if is_treebeard() {
+    if let Some(floor) = env_usize_opt("ANGEL_HANDLE_SUBCALL_MIN_BYTES") {
+        return floor;
+    }
+    // Parking a small sub-call result behind a handle only pays when a cheap
+    // local seat digests it before the root must read it. Without one, the
+    // root spends extra requests fetching what it just asked for — measured
+    // at two requests and a full cache rewrite per parked consult on a paid
+    // link. So the low Treebeard floor holds only on the lane's home turf
+    // (no explicit helper endpoint: digests come from the local roster).
+    // An explicit `ANGEL_COMPACT_URL` names the summarizer for compaction;
+    // when that seat is the paid task model itself, results under 16 KiB
+    // ride back inline instead.
+    let explicit_helper = std::env::var("ANGEL_COMPACT_URL")
+        .ok()
+        .is_some_and(|url| !url.trim().is_empty());
+    if is_treebeard() && !explicit_helper {
         512
     } else {
-        2048
-    })
+        16 * 1024
+    }
 }
 
 pub(crate) fn eager_tool_offload_min_bytes() -> usize {

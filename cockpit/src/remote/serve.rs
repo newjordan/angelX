@@ -143,7 +143,9 @@ pub(crate) fn serve(
             }
         })?;
     }
-    let deadline = Instant::now() + Duration::from_secs(10);
+    // A window is given ten seconds to attach before the cockpit draws; a
+    // launch with nobody watching starts at once.
+    let deadline = Instant::now() + Duration::from_secs(if launch.unattended { 0 } else { 10 });
     while (hub.status().clients == 0 || hub.status().size.cell_width == 0) && Instant::now() < deadline {
         std::thread::sleep(Duration::from_millis(10));
     }

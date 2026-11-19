@@ -324,6 +324,13 @@ pub struct HttpClub {
     /// doomed generation before the ladder rescued it. Remembering the level
     /// that worked starts the *next* turn there instead.
     learned_output_budget: AtomicU64,
+    /// Ceiling a metering gateway's budget reservation imposed, in tokens
+    /// (0 = none). The gateway holds back a worst case per request (input
+    /// plus the whole output limit, no cache allowance), so near the end of
+    /// a run's credit a large ask is refused before it is sent. The club
+    /// steps its own output limit down — visibly, in its log — and the
+    /// resend fits. Only ever shrinks within a run.
+    reservation_output_cap: AtomicU64,
     /// Monotonic invalidation key for the Bag's immutable route snapshot.
     route_state_revision: AtomicU64,
     /// Cumulative effort-gate events (withheld requests, learned rejections).
@@ -1860,6 +1867,7 @@ impl HttpClub {
             reasoning_rejected: Mutex::new(None),
             images_rejected: Mutex::new(None),
             learned_output_budget: AtomicU64::new(0),
+            reservation_output_cap: AtomicU64::new(0),
             route_state_revision: AtomicU64::new(0),
             effort_gate: Mutex::new(EffortGateUsage::default()),
             keep_truncated: false,
@@ -2129,6 +2137,91 @@ impl HttpClub {
             && learned > current
         {
             body["max_tokens"] = serde_json::json!(learned);
+        }
+    }
+
+    /// Record a gateway reservation refusal against the output limit just
+    /// sent. With the gateway's amounts in hand the next ask is scaled so
+    /// the request's hold fits the credit left; without them it is halved.
+    /// Never below the floor: the output limit is the small term of a
+    /// reservation, and a limit that cuts replies mid tool call costs more
+    /// than it frees. The conversation is the turn's to shrink, not the
+    /// seat's. Keeps the minimum: credit only falls. Returns the new limit
+    /// when this refusal lowered it, so the caller can tell a request that
+    /// will go out changed from one that would go out the same.
+    fn note_reservation_refusal(
+        &self,
+        sent_max_tokens: Option<u64>,
+        refusal: Option<&ReservationRefusal>,
+    ) -> Option<u64> {
+        let floor = reservation_output_floor();
+        let sent = sent_max_tokens.filter(|sent| *sent > floor)?;
+        let stepped = match refusal {
+            Some(refusal) => refusal.output_limit(sent, floor),
+            None => (sent / 2).max(floor),
+        };
+        if stepped >= sent {
+            return None;
+        }
+        let mut current = self.reservation_output_cap.load(Ordering::Relaxed);
+        loop {
+            let next = if current == 0 {
+                stepped
+            } else {
+                current.min(stepped)
+            };
+            if next == current {
+                // Already at or under this: the request just refused went
+                // out with a limit above the ceiling only if it never took
+                // it, and then the next one does.
+                return (sent > next).then_some(next);
+            }
+            match self.reservation_output_cap.compare_exchange(
+                current,
+                next,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => {
+                    let amounts = refusal.map_or_else(String::new, |refusal| {
+                        format!(
+                            " (the request needed {:.4} held, {:.4} available)",
+                            refusal.required, refusal.available
+                        )
+                    });
+                    eprintln!(
+                        "[club:{}] gateway reservation refused a {sent}-token output limit{amounts}; \
+                         lowering the limit to {next} for the resend",
+                        self.name
+                    );
+                    return Some(next);
+                }
+                Err(observed) => current = observed,
+            }
+        }
+    }
+
+    /// Clamp the body's output limit to the reservation ceiling. A limit the
+    /// request states is lowered under the name it was stated with (a second
+    /// limit field is a rejected body). A request that states none gets
+    /// `max_tokens`: the ceiling was learned from a limit that went out on
+    /// the wire, so the wire's own default is what has to come down.
+    fn apply_reservation_cap(&self, body: &mut serde_json::Value) {
+        let cap = self.reservation_output_cap.load(Ordering::Relaxed);
+        if cap == 0 {
+            return;
+        }
+        let mut stated = false;
+        for key in ["max_tokens", "max_completion_tokens", "max_output_tokens"] {
+            if let Some(current) = body.get(key).and_then(|v| v.as_u64()) {
+                stated = true;
+                if current > cap {
+                    body[key] = serde_json::json!(cap);
+                }
+            }
+        }
+        if !stated {
+            body["max_tokens"] = serde_json::json!(cap);
         }
     }
 
@@ -2944,6 +3037,7 @@ impl HttpClub {
             body["stop"] = json!(prov.stop);
         }
         self.apply_learned_output_budget(&mut body, budget);
+        self.apply_reservation_cap(&mut body);
         Ok((body, budget))
     }
 
@@ -3256,7 +3350,25 @@ impl HttpClub {
                         .set("anthropic-version", anthropic_messages::API_VERSION),
                     Some(deepseek_messages::Flavor::Anthropic) => {
                         let workspace = self.anthropic_workspace.as_deref();
-                        anthropic_messages::request_headers(&key, workspace)
+                        // Bearer route tokens belong to remote relays and
+                        // metering gateways. First-party and loopback seats
+                        // keep `x-api-key` alone. `ANGEL_ANTHROPIC_BEARER`
+                        // overrides either way (a local gateway stand-in
+                        // still demands its token).
+                        let bearer = match std::env::var("ANGEL_ANTHROPIC_BEARER")
+                            .map(|v| v.trim().to_ascii_lowercase())
+                            .as_deref()
+                        {
+                            Ok("1" | "true" | "yes" | "on") => true,
+                            Ok("0" | "false" | "no" | "off") => false,
+                            _ => {
+                                !self.base_url.contains("api.anthropic.com")
+                                    && !self.base_url.contains("127.0.0.1")
+                                    && !self.base_url.contains("localhost")
+                                    && !self.base_url.contains("[::1]")
+                            }
+                        };
+                        anthropic_messages::request_headers(&key, workspace, bearer)
                             .into_iter()
                             .fold(req, |req, (name, value)| req.set(name, &value))
                     }
@@ -3416,6 +3528,38 @@ impl HttpClub {
                             detail.trim()
                         )));
                     }
+                    // A metering gateway's recovery contract outranks the
+                    // status table: `run_action=stop` ends the run's model
+                    // calls, and a reservation refusal the gateway says
+                    // waiting will not fix is never answered by resending
+                    // the same bytes. The seat lowers its own output limit
+                    // here; the turn that owns the conversation makes the
+                    // rest of the request smaller before it asks again.
+                    if error_indicates_gateway_stop(&detail) {
+                        return Err(crate::platform::secrets::redact_error(&format!(
+                            "HTTP {code}: {}",
+                            detail.trim()
+                        )));
+                    }
+                    if error_indicates_reservation_exceeds(&detail) {
+                        let sent = serde_json::from_slice::<serde_json::Value>(bytes)
+                            .ok()
+                            .and_then(|body| {
+                                ["max_tokens", "max_completion_tokens", "max_output_tokens"]
+                                    .iter()
+                                    .find_map(|key| body.get(*key).and_then(|v| v.as_u64()))
+                            });
+                        let lowered = self
+                            .note_reservation_refusal(sent, reservation_refusal(&detail).as_ref())
+                            .map_or_else(String::new, |limit| {
+                                format!(" {RESERVATION_LIMIT_LOWERED}{limit}]")
+                            });
+                        return Err(crate::platform::secrets::redact_error(&format!(
+                            "HTTP {code}: {}{lowered}",
+                            detail.trim()
+                        )));
+                    }
+                    let gateway_retryable = error_indicates_gateway_retryable(&detail);
                     let (attempt, retries, backoff_base, backoff_cap) = if code == 429 {
                         (
                             rate_limit_attempt,
@@ -3426,7 +3570,10 @@ impl HttpClub {
                     } else {
                         (ordinary_attempt, p.retries, p.backoff_base, p.backoff_cap)
                     };
-                    if is_retryable_status(code) && attempt < retries && !vetoed {
+                    if (is_retryable_status(code) || gateway_retryable)
+                        && attempt < retries
+                        && !vetoed
+                    {
                         let wait =
                             retry_after(retry_hdr.as_deref(), backoff_cap).unwrap_or_else(|| {
                                 jittered(
@@ -4844,3 +4991,7 @@ mod glm_image_recovery_tests;
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/club/http__dead_peer_tests.rs"]
 mod dead_peer_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/club/http__reservation_tests.rs"]
+mod reservation_tests;

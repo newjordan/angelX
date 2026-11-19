@@ -31,11 +31,21 @@ pub(super) fn binding_controls() -> bool {
     crate::agent::harness::env_flag("ANGEL_ANTHROPIC_THINKING_BINDING", true)
 }
 
-pub(super) fn request_headers(key: &str, workspace: Option<&str>) -> Vec<(&'static str, String)> {
+pub(super) fn request_headers(
+    key: &str,
+    workspace: Option<&str>,
+    bearer: bool,
+) -> Vec<(&'static str, String)> {
     let mut headers = vec![
         ("x-api-key", key.to_string()),
         ("anthropic-version", API_VERSION.to_string()),
     ];
+    // Relays and metering gateways authenticate with a Bearer route token
+    // (substituting the real credential upstream); the first-party API uses
+    // `x-api-key` alone. The caller decides by route, never by model name.
+    if bearer {
+        headers.push(("authorization", format!("Bearer {key}")));
+    }
     if binding_controls() {
         headers.push(("anthropic-beta", THINKING_BINDING_BETA.to_string()));
     }

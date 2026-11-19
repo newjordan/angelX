@@ -33,8 +33,25 @@ pub(crate) fn dir() -> io::Result<PathBuf> {
     Ok(dir)
 }
 
+/// Maximum Unix `sockaddr_un.sun_path` bytes before falling back to a short
+/// deterministic temp dir. Linux limits `sun_path` to 108 bytes (incl. NUL).
+const MAX_UNIX_SOCKET_BYTES: usize = 100;
+
 pub(crate) fn socket(name: &str) -> io::Result<PathBuf> {
-    Ok(dir()?.join(format!("{name}.sock")))
+    let preferred = dir()?.join(format!("{name}.sock"));
+    if preferred.as_os_str().as_encoded_bytes().len() < MAX_UNIX_SOCKET_BYTES {
+        return Ok(preferred);
+    }
+    let home = std::env::var_os("HOME").unwrap_or_default();
+    let tag = &crate::knowledge::cut::sha256_hex(home.as_encoded_bytes())[..12];
+    let short_dir = std::env::temp_dir().join(format!("angelx-rg-{tag}"));
+    std::fs::create_dir_all(&short_dir)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&short_dir, std::fs::Permissions::from_mode(0o700));
+    }
+    Ok(short_dir.join(format!("{name}.sock")))
 }
 
 pub(crate) fn valid_name(name: &str) -> bool {

@@ -936,3 +936,29 @@ fn empty_problem_falls_through_to_direct_pass() {
     );
     let _ = out;
 }
+
+#[test]
+fn an_empty_round_is_reported_to_the_caller_not_dropped() {
+    let club = ScriptClub::new(&[
+        &block_ev("first angle", &["the cache key omits the tenant"]),
+        "",
+        &block_ev("third angle", &["eviction runs once per hour"]),
+    ]);
+    let mut deli = DeliClub::for_consult(club.clone(), Some(3), None);
+    deli.k.stall_stop = 0;
+    deli.k.min_findings = 0;
+    let st = deli.iterate("why are tenants seeing each other's data", "", &AtomicBool::new(false));
+    assert_eq!(st.log.len(), 3);
+    assert_eq!(st.log[1].error.as_deref(), Some(EMPTY_ROUND));
+    assert_eq!(st.findings.len(), 2, "the answered rounds still count");
+    let note = empty_rounds_note(&st).expect("an empty round must be named");
+    assert!(note.contains("1 of 3 rounds returned no text"), "{note}");
+
+    let answered = DeliClub::for_consult(
+        ScriptClub::new(&[&block_ev("only angle", &["the index is stale"])]),
+        Some(1),
+        None,
+    );
+    let st = answered.iterate("why is search slow", "", &AtomicBool::new(false));
+    assert!(empty_rounds_note(&st).is_none(), "nothing to report when every round answered");
+}

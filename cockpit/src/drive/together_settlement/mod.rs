@@ -8,6 +8,9 @@ pub(crate) mod exhibits {
     use angel_plug::drive::DriveWorld;
 
     pub(crate) fn worker_contract(site_id: &str, loop_id: &str, iteration: usize) -> String {
+        if !crate::agent::harness::env_flag("ANGEL_SETTLEMENT_CONTRACT", true) {
+            return String::new();
+        }
         <GameHost as DriveWorld>::settlement_contract(site_id, loop_id, iteration)
     }
 }

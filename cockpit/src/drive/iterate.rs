@@ -123,12 +123,43 @@ pub(crate) fn parse_iteration_sections(text: &str) -> (String, Vec<String>, Vec<
         }
         if let Some(item) = bullet(line) {
             match section {
+                // An item that says of itself that it was estimated or never run is a
+                // lead to test, whatever section it was written under. Recorded as a
+                // finding it would close the direction for every later iteration.
+                Section::Findings if is_self_declared_estimate(&item) => hypotheses.push(item),
                 Section::Findings => findings.push(item),
                 Section::Hypotheses => hypotheses.push(item),
             }
         }
     }
     (direction, findings, hypotheses)
+}
+
+const ESTIMATE_MARKERS: [&str; 16] = [
+    "(estimated",
+    "(est.",
+    "(est)",
+    "estimated only",
+    "estimate only",
+    "estimated, not",
+    "by estimate",
+    "by my estimate",
+    "by my count",
+    "not measured",
+    "unmeasured",
+    "not run",
+    "not built",
+    "not tested",
+    "untested",
+    "not evaluated",
+];
+
+/// True when a reported item labels itself as an estimate or as something that was not
+/// built, run or measured. The evidence tag is left out of the search: a cited file
+/// shows the file exists, not that the claim about it was measured.
+pub(crate) fn is_self_declared_estimate(item: &str) -> bool {
+    let claim = finding_claim(item).to_ascii_lowercase();
+    ESTIMATE_MARKERS.iter().any(|marker| claim.contains(marker))
 }
 
 fn strip_prefix_ci<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {

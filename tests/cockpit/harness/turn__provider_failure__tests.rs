@@ -244,6 +244,52 @@ fn native_verdict_names_each_corpus_case_by_the_class_the_turn_gave_it() {
 }
 
 #[test]
+fn gateway_contract_errors_get_their_own_decisions() {
+    let reservation = "HTTP 400: {\"diagnostic\":{\"code\":\"model_reservation_exceeds_remaining_budget\",\"run_action\":\"continue\",\"retryable\":false}}";
+    let verdict = native_verdict(reservation, &context(0, None));
+    assert!(
+        !verdict.retry,
+        "a reservation refusal is never replayed as sent: the turn sends a smaller request itself"
+    );
+    assert_eq!(verdict.delay_ms, 0);
+    assert_eq!(
+        verdict.class,
+        FailureClass::Context,
+        "a reservation refusal is a request too large for the credit left: {reservation}"
+    );
+    assert!(
+        !is_permanent_provider_error(reservation),
+        "correctable, so not a permanent provider error"
+    );
+    // Unbounded provider retries (the default) must not reach it either.
+    for attempt in [0, 1, 50, 5_000] {
+        assert!(!native_verdict(reservation, &context(attempt, None)).retry);
+    }
+
+    let stop = "HTTP 402: {\"error\":{\"code\":\"model_budget_exhausted\",\"run_action\":\"stop\",\"retryable\":false}}";
+    let verdict = native_verdict(stop, &context(0, None));
+    assert!(!verdict.retry, "run_action=stop ends model calls");
+    assert_eq!(verdict.class, FailureClass::Permanent, "{stop}");
+
+    // A reservation the gateway marks retryable is a plain retry, never a
+    // step-down: shrinking on a transient hold would halve the limit for
+    // the rest of the run.
+    let transient_hold = "HTTP 429: {\"error\":{\"code\":\"model_reservation_pending\",\"run_action\":\"continue\",\"retryable\":true}}";
+    assert!(crate::agent::club::error_indicates_gateway_retryable(
+        transient_hold
+    ));
+    assert!(!crate::agent::club::error_indicates_reservation_exceeds(
+        transient_hold
+    ));
+
+    let refusal =
+        "Anthropic declined the request (stop_reason refusal, stop_details.category: terms)";
+    let verdict = native_verdict(refusal, &context(0, None));
+    assert!(!verdict.retry, "the same request earns the same refusal");
+    assert_eq!(verdict.class, FailureClass::Permanent, "{refusal}");
+}
+
+#[test]
 fn the_shipped_bend_leg_reproduces_the_native_decision_over_the_corpus() {
     let root = Root::new("parity");
     install_shipped(&root);

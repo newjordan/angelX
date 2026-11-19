@@ -50,7 +50,7 @@ fn the_messages_url_never_doubles_v1() {
 #[test]
 fn every_request_names_its_key_version_beta_and_workspace() {
     let _guard = crate::tests::env_lock();
-    let headers = request_headers("sk-test", None);
+    let headers = request_headers("sk-test", None, false);
     assert_eq!(
         headers,
         vec![
@@ -63,12 +63,18 @@ fn every_request_names_its_key_version_beta_and_workspace() {
         ]
     );
     assert!(!headers.iter().any(|(name, _)| *name == "authorization"));
-    let scoped = request_headers("sk-test", Some(" wrkspc_01 "));
+    let relay = request_headers("route-key", None, true);
+    assert!(
+        relay.contains(&("authorization", "Bearer route-key".to_string())),
+        "{relay:?}"
+    );
+    assert!(relay.contains(&("x-api-key", "route-key".to_string())));
+    let scoped = request_headers("sk-test", Some(" wrkspc_01 "), false);
     assert_eq!(
         scoped.last(),
         Some(&("anthropic-workspace-id", "wrkspc_01".to_string()))
     );
-    assert_eq!(request_headers("sk-test", Some("  ")).len(), 3);
+    assert_eq!(request_headers("sk-test", Some("  "), false).len(), 3);
 }
 
 #[test]
@@ -196,7 +202,7 @@ fn binding_controls_can_be_left_off_the_wire() {
     });
     {
         let _binding = TestEnvGuard::set("ANGEL_ANTHROPIC_THINKING_BINDING", "0");
-        let headers = request_headers("sk-test", None);
+        let headers = request_headers("sk-test", None, false);
         assert!(!headers.iter().any(|(name, _)| *name == "anthropic-beta"));
         assert_eq!(headers.len(), 2);
         let body = to_messages_body_for(&chat, Flavor::Anthropic).unwrap();
@@ -204,7 +210,7 @@ fn binding_controls_can_be_left_off_the_wire() {
         assert_eq!(body["output_config"], json!({"effort": "high"}));
     }
     let _binding = TestEnvGuard::unset("ANGEL_ANTHROPIC_THINKING_BINDING");
-    assert_eq!(request_headers("sk-test", None).len(), 3);
+    assert_eq!(request_headers("sk-test", None, false).len(), 3);
     let body = to_messages_body_for(&chat, Flavor::Anthropic).unwrap();
     assert_eq!(
         body["thinking"]["block_binding"],
@@ -689,4 +695,27 @@ fn the_seat_round_trips_its_signed_thinking_on_the_wire() {
     super::super::resync_reasoning_effort_env_from_env();
     super::super::resync_max_tokens_env_from_env();
     server.join().unwrap();
+}
+
+#[test]
+fn merged_assistant_keeps_thinking_blocks_first_on_anthropic_wire() {
+    let signed = json!([{"type": "thinking", "thinking": "plan", "signature": "Esig123=="}]).to_string();
+    let chat = json!({
+        "model": "claude-sonnet-5-5",
+        "messages": [
+            {"role": "user", "content": "continue"},
+            // e.g. a compacted plan/handoff snapshot right before a kept thinking turn:
+            {"role": "assistant", "content": "Saved plan snapshot"},
+            {"role": "assistant", "content": "Checking file", "reasoning_content": signed, "tool_calls": [
+                {"id": "call_1", "type": "function", "function": {"name": "shell", "arguments": "{\"command\":\"ls\"}"}}
+            ]},
+            {"role": "tool", "tool_call_id": "call_1", "content": "ok"}
+        ]
+    });
+    let body = to_messages_body_for(&chat, Flavor::Anthropic).unwrap();
+    let asst = body["messages"][1]["content"].as_array().unwrap();
+    assert_eq!(asst[0]["type"], "thinking", "thinking must lead merged assistant: {asst:?}");
+    assert_eq!(asst[1]["type"], "text");
+    assert_eq!(asst[2]["type"], "text");
+    assert_eq!(asst[3]["type"], "tool_use");
 }

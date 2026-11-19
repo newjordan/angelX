@@ -225,3 +225,30 @@ fn tool_panic_is_isolated_into_error_result() {
     assert!(err.contains("panicked"), "got: {err}");
     assert!(err.contains("panic_probe"), "got: {err}");
 }
+
+#[test]
+fn angel_tools_allowlist_freezes_advertised_tools_and_blocks_disabled_dispatch() {
+    let _guard = crate::tests::env_lock();
+    let _tools = EnvGuard::set("ANGEL_TOOLS", "shell, write_file");
+    let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "lean");
+    let reg = ToolRegistry::with_defaults();
+
+    // Even with competition=true and metered_sota=true, only the allowlisted
+    // tools are advertised — no research/labyrinth/web/gpu tools leak in.
+    for defs in [
+        reg.defs_for_turn(Some(200_000), true, true),
+        reg.defs_for_driver_turn(Some(200_000), true, true, true),
+    ] {
+        let mut names: Vec<&str> = defs.iter().map(|d| d.name.as_str()).collect();
+        names.sort_unstable();
+        assert_eq!(names, vec!["shell", "write_file"], "got: {names:?}");
+    }
+
+    let err = reg
+        .dispatch("gpu_stat", &serde_json::json!({}))
+        .expect_err("disabled tool must not dispatch");
+    assert!(err.contains("not enabled"), "got: {err}");
+    assert!(err.contains("shell, write_file"), "got: {err}");
+    assert!(reg.has_tool("shell") && reg.has_tool("write_file"));
+    assert!(!reg.has_tool("run_tests") && !reg.has_tool("gpu_stat"));
+}

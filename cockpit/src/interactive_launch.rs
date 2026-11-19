@@ -13,6 +13,15 @@ pub(crate) struct InteractiveLaunch {
     pub model: Option<String>,
     pub effort: Option<String>,
     pub resume: Option<Option<String>>,
+    /// `--goal TEXT`: the standing goal, set as `/goal TEXT` sets it.
+    pub goal: Option<String>,
+    /// `--loop TEXT`: a loop started as `/loop TEXT` starts it.
+    pub loop_start: Option<String>,
+    /// `--unattended`: nobody is at the keyboard. The cockpit runs with no
+    /// terminal and the process ends when the loop does.
+    pub unattended: bool,
+    /// `--tools LIST`: explicit comma-separated allowlist of tools to advertise.
+    pub tools: Option<String>,
 }
 
 fn invalid(message: &'static str) -> Error {
@@ -59,7 +68,6 @@ pub(crate) fn machine_mode(arg: &OsStr) -> bool {
                 | "--dump-rl-preview"
                 | "--dump-scryglass"
                 | "--dump-visual"
-                | "--loop"
                 | "--rollout"
                 | "--ask"
                 | "--board-sync"
@@ -133,6 +141,47 @@ pub(crate) fn parse(args: &[OsString]) -> Result<Option<InteractiveLaunch>> {
                     launch.prompt = Some(text.to_owned());
                 }
             }
+            Some("--goal" | "--loop") => {
+                let target = if arg == "--goal" {
+                    &mut launch.goal
+                } else {
+                    &mut launch.loop_start
+                };
+                if target.is_some() {
+                    return Err(invalid("duplicate --goal or --loop"));
+                }
+                let text = args
+                    .next()
+                    .and_then(|value| value.to_str())
+                    .ok_or_else(|| invalid("--goal and --loop require UTF-8 text"))?;
+                if text.trim().is_empty() {
+                    return Err(invalid("--goal and --loop text must not be blank"));
+                }
+                if text.len() > crate::app::control::MAX_COMPOSER_PASTE_BYTES {
+                    return Err(invalid("--goal and --loop text exceeds the 256 KiB composer limit"));
+                }
+                *target = Some(text.to_owned());
+            }
+            Some("--unattended") => {
+                if launch.unattended {
+                    return Err(invalid("duplicate --unattended"));
+                }
+                launch.unattended = true;
+            }
+            Some("--tools") => {
+                if launch.tools.is_some() {
+                    return Err(invalid("duplicate --tools"));
+                }
+                let raw = args
+                    .next()
+                    .and_then(|value| value.to_str())
+                    .ok_or_else(|| invalid("--tools requires UTF-8 comma-separated tool names"))?;
+                let normalized =
+                    crate::agent::harness::normalize_tools_list(raw).ok_or_else(|| {
+                        invalid("--tools requires one or more valid comma-separated tool names")
+                    })?;
+                launch.tools = Some(normalized);
+            }
             Some("--resume") => {
                 if launch.resume.is_some() {
                     return Err(invalid("duplicate --resume"));
@@ -180,6 +229,14 @@ pub(crate) fn parse(args: &[OsString]) -> Result<Option<InteractiveLaunch>> {
     }
     if (launch.draft.is_some() || launch.prompt.is_some()) && launch.resume.is_some() {
         return Err(invalid("initial text cannot be combined with --resume"));
+    }
+    if (launch.draft.is_some() || launch.prompt.is_some())
+        && (launch.goal.is_some() || launch.loop_start.is_some())
+    {
+        return Err(invalid("initial text cannot be combined with --goal or --loop"));
+    }
+    if launch.unattended && launch.loop_start.is_none() {
+        return Err(invalid("--unattended requires --loop"));
     }
     Ok(Some(launch))
 }

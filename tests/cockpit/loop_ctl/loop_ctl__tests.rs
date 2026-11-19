@@ -1941,6 +1941,104 @@ fn an_idle_iteration_waits_and_a_steer_wakes_it() {
 }
 
 #[test]
+fn a_message_typed_while_a_podrace_loop_waits_steers_the_loop() {
+    research_fixture("typed-while-waiting", |root| {
+        let mut app = crate::seed_preview_app();
+        app.loop_ctl = LoopState {
+            status: LoopStatus::Running,
+            task: "speed up the kernel".into(),
+            workspace: Some(root.to_path_buf()),
+            podrace: true,
+            stall_stop: 99,
+            ..Default::default()
+        };
+        app.terminal_focused = false;
+        app.loop_ctl.wake_at = Some(Instant::now() + Duration::from_secs(LOOP_IDLE_WAIT_SECS));
+        assert!(app.loop_waiting_for_next_iteration());
+
+        app.input = "the result is in, go".to_string();
+        app.submit();
+        assert!(app.thinking.is_none(), "no side conversation is started");
+        assert_eq!(
+            app.loop_ctl.steer_notes,
+            vec!["the result is in, go".to_string()],
+            "the message is the loop's guidance"
+        );
+        assert!(
+            app.loop_ctl.wake_at.unwrap() <= Instant::now(),
+            "a loop sitting out its idle wait is woken"
+        );
+        assert!(app.input.is_empty());
+
+        // The same words again are not recorded twice, and still wake the loop.
+        app.loop_ctl.wake_at = Some(Instant::now() + Duration::from_secs(LOOP_IDLE_WAIT_SECS));
+        app.input = "the result is in, go".to_string();
+        app.submit();
+        assert_eq!(app.loop_ctl.steer_notes.len(), 1);
+        assert!(app.loop_ctl.wake_at.unwrap() <= Instant::now());
+        assert!(app.thinking.is_none());
+
+        // While an iteration is in flight, or for a loop that is not a podrace, the
+        // composer behaves as before.
+        app.loop_ctl.awaiting_turn = true;
+        assert!(!app.loop_waiting_for_next_iteration());
+        app.loop_ctl.awaiting_turn = false;
+        app.loop_ctl.podrace = false;
+        assert!(!app.loop_waiting_for_next_iteration());
+        app.loop_ctl.podrace = true;
+        app.loop_ctl.status = LoopStatus::Paused;
+        assert!(!app.loop_waiting_for_next_iteration());
+    });
+}
+
+#[test]
+fn a_resumed_loop_keeps_its_identity_and_the_conversation_it_carried() {
+    use crate::agent::club::ChatMsg;
+    research_fixture("resume-carry", |root| {
+        let _mode = crate::tests::TestEnvGuard::unset("ANGEL_LOOP_CARRY");
+        let _limit = crate::tests::TestEnvGuard::unset("ANGEL_LOOP_CARRY_TOKENS");
+        let mut app = crate::seed_preview_app();
+        app.loop_ctl = LoopState {
+            id: "loop-resume".into(),
+            status: LoopStatus::Paused,
+            task: "speed up the kernel".into(),
+            workspace: Some(root.to_path_buf()),
+            podrace: true,
+            stall_stop: 99,
+            ..Default::default()
+        };
+        app.terminal_focused = false;
+        crate::drive::loop_carry::keep(
+            "loop-resume",
+            true,
+            vec![
+                ChatMsg::system("first system"),
+                ChatMsg::user("iteration one"),
+                ChatMsg::assistant("profiled the kernel and cut 5%"),
+            ],
+        );
+
+        assert_eq!(app.loop_command(Some("resume".into())), "loop resumed");
+        assert_eq!(app.loop_ctl.id, "loop-resume", "a resumed loop is the same loop");
+        assert_eq!(app.loop_ctl.status, LoopStatus::Running);
+        assert!(
+            app.loop_ctl.wake_at.unwrap() <= Instant::now(),
+            "its next iteration is due at once"
+        );
+
+        let fresh: std::sync::Arc<[ChatMsg]> = std::sync::Arc::from(vec![
+            ChatMsg::system("fresh system"),
+            ChatMsg::user("iteration two state"),
+        ]);
+        let next = crate::drive::loop_carry::next_conversation(Some(&app.loop_ctl.id), fresh);
+        assert_eq!(next.len(), 4, "the kept conversation, then the loop's update");
+        assert_eq!(&*next[0].content, "first system");
+        assert!(next[3].content.ends_with("iteration two state"));
+        crate::drive::loop_carry::clear();
+    });
+}
+
+#[test]
 fn an_operator_wrap_up_lets_the_loop_end_without_an_acceptance_command() {
     research_fixture("wrap-up", |root| {
         let running = || LoopState {

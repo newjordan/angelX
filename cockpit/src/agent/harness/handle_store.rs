@@ -406,6 +406,11 @@ fn session_store() -> &'static Mutex<HandleStore> {
 }
 
 pub(crate) fn handle_store_enabled() -> bool {
+    if let Some(allowed) = super::registry::explicit_tool_allowlist()
+        && !allowed.iter().any(|name| name == "handle_read")
+    {
+        return false;
+    }
     env_flag("ANGEL_HANDLE_STORE", true)
 }
 

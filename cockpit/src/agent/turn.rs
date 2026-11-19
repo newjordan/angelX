@@ -179,6 +179,8 @@ impl Thinking {
         requested_route: RouteIdentity,
         loop_owner: Option<String>,
     ) -> Self {
+        // A loop iteration may continue the conversation its predecessor finished.
+        let convo = crate::drive::loop_carry::next_conversation(loop_owner.as_deref(), convo);
         let idle_timeout_secs = crate::agent::club::model_defaults::budgets(
             &club.model_identity().unwrap_or_default(),
             club.env_namespace().unwrap_or(club.label()),
