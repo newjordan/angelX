@@ -62,7 +62,7 @@ pub struct ChatGptAuth {
     disk_snapshot: Option<CredentialSnapshot>,
 }
 
-fn codex_home_path() -> PathBuf {
+pub(crate) fn codex_home_path() -> PathBuf {
     if let Ok(home) = std::env::var("CODEX_HOME")
         && !home.trim().is_empty()
     {
@@ -334,6 +334,10 @@ pub(crate) fn canonicalize_openai_model(slug: &str) -> String {
 }
 
 impl ChatGptAuth {
+    pub(crate) fn has_local_login() -> bool {
+        Self::load().is_some_and(|auth| !auth.path.as_os_str().is_empty())
+    }
+
     fn detached() -> Self {
         Self {
             access_token: String::new(),

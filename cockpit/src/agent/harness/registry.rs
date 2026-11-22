@@ -761,6 +761,7 @@ impl ToolRegistry {
             crate::drive::continual_harness::ContinualHarnessTool::new(&workspace),
         ));
         r.register(Box::new(PresentTool::new(&workspace)));
+        crate::agent::tools::imagegen::maybe_register(&mut r, &workspace);
         r.register(Box::new(crate::agent::tools::graph::GraphTool::default()));
         r.register(Box::new(ContextTool::new(r.gauge())));
         register_file_tools(&mut r, workspace.clone());
@@ -861,6 +862,7 @@ impl ToolRegistry {
             crate::drive::continual_harness::ContinualHarnessTool::new(&workspace),
         ));
         r.register(Box::new(PresentTool::new(&workspace)));
+        crate::agent::tools::imagegen::maybe_register(&mut r, &workspace);
         r.register(Box::new(crate::agent::tools::graph::GraphTool::default()));
         r.register(Box::new(ContextTool::new(r.gauge())));
         register_file_tools(&mut r, workspace.clone());
@@ -1687,6 +1689,7 @@ pub(crate) fn is_essential_tool(name: &str) -> bool {
             | "swarm_compile"
             | "skill"
             | "tool_search"
+            | "imagegen"
     ) || crate::agent::harness::cartridges::tools::is_core(name)
 }
 
@@ -1829,7 +1832,7 @@ fn small_workspace_route() -> bool {
 fn is_small_workspace_tool(name: &str) -> bool {
     matches!(
         name,
-        "shell" | "read_file" | "write_file" | "str_replace" | "tool_search"
+        "shell" | "read_file" | "write_file" | "str_replace" | "tool_search" | "imagegen"
     )
 }
 

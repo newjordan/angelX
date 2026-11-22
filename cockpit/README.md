@@ -264,6 +264,11 @@ Changing native Rust rendering or execution still needs a native build.
 ## Model routes
 
 The default club list uses ChatGPT/Grok OAuth and reachable local models.
+When the Codex CLI is on PATH or in `~/.local/bin` and signed in with
+ChatGPT, AngelX offers
+`imagegen` for creating and editing images. It saves each result as a
+workspace PNG and opens it on the Stage. Ask for an image in plain language.
+
 Every model you serve yourself is a mode of one expandable `local` box:
 `ANGEL_LOCAL_URL` is the first, `ANGEL_LOCAL_URLS` (`url` or `name=url`,
 comma-separated) adds more, and opt-in discovery folds found surfaces in too.
