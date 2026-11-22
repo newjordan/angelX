@@ -3662,7 +3662,7 @@ fn run_turn_tiered(
                         },
                         outcome,
                     });
-                    let presents_to_stage = call.name == "present"
+                    let presents_to_stage = matches!(call.name.as_str(), "present" | "imagegen")
                         || (matches!(call.name.as_str(), "desktop" | "browser")
                             && call.args.get("action").and_then(Value::as_str)
                                 == Some("screenshot"));

@@ -17,6 +17,7 @@ pub mod git;
 pub mod goal;
 pub(crate) mod graph;
 pub mod hands;
+pub(crate) mod imagegen;
 pub(crate) mod http_transport;
 pub(crate) mod jev;
 pub(crate) mod labyrinth;
