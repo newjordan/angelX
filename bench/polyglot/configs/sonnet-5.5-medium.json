@@ -1,0 +1,13 @@
+{
+ "_comment": "Claude Sonnet 5.5, effort medium, from Anthropic's Messages API. Sonnet 5.5 rejects a non-default temperature, so the proxy drops it; 128000 is the output cap Claude Code ships with.",
+ "provider": "anthropic",
+ "model": "claude-sonnet-5-5",
+ "effort": "medium",
+ "upstream": "https://api.anthropic.com",
+ "key_env": "ANTHROPIC_API_KEY",
+ "auth": "x-api-key",
+ "sampling": {
+  "max_tokens": 128000,
+  "temperature": null
+ }
+}

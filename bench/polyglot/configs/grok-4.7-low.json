@@ -1,0 +1,13 @@
+{
+ "_comment": "Grok 4.7, reasoning low, from xAI's API.",
+ "provider": "grok",
+ "model": "grok-4.7",
+ "effort": "low",
+ "upstream": "https://api.x.ai/v1",
+ "key_env": "XAI_API_KEY",
+ "sampling": {
+  "temperature": 0.0,
+  "max_tokens": 8192,
+  "reasoning_effort": "low"
+ }
+}

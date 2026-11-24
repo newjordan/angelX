@@ -1,0 +1,16 @@
+{
+ "_comment": "GLM-5.3-Flash at thinking low (the provider cannot turn its thinking off), from Z.ai's coding endpoint.",
+ "provider": "glm",
+ "model": "glm-5.3-flash",
+ "effort": "low",
+ "upstream": "https://api.z.ai/api/coding/paas/v4",
+ "key_env": "ZAI_API_KEY",
+ "sampling": {
+  "temperature": 0.0,
+  "max_tokens": 8192,
+  "reasoning_effort": "low",
+  "thinking": {
+   "type": "enabled"
+  }
+ }
+}

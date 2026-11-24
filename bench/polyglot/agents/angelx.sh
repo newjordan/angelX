@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# angelX on one polyglot task, configured as in the published polyglot runs.
+#
+# The runner calls this with cwd = the task workspace and these set:
+#   BENCH_PROMPT BENCH_TASK BENCH_RUN_ID BENCH_WALL_SECS
+#   BENCH_BASE_URL BENCH_API_KEY BENCH_MODEL BENCH_PROVIDER BENCH_EFFORT BENCH_MAX_TOKENS
+# ANGEL_BIN picks the binary (default: `angel` on PATH). Pass it through with
+# `--pass-env ANGEL_BIN`. angelX prints one JSON result envelope on stdout.
+set -euo pipefail
+
+ANGEL_BIN=${ANGEL_BIN:-angel}
+MAX_TOKENS=${BENCH_MAX_TOKENS:-8192}
+
+# Task-mode settings from the published runs. Each one bounds a loop or keeps the
+# turn on the task; none of them gives angelX anything another harness lacks.
+export \
+  ANGEL_MAX_HOPS=60 \
+  ANGEL_SPIN_LIMIT=4 \
+  ANGEL_UNPRODUCTIVE_STREAK_STOP=16 \
+  ANGEL_ERROR_LIMIT=6 \
+  ANGEL_TOOL_IDLE_SECS=20 \
+  ANGEL_VERIFY_BEFORE_DONE=0 \
+  ANGEL_VERIFY_NUDGES=4 \
+  ANGEL_TOOLCALL_STORM=1 \
+  ANGEL_TASK_COMPACT_PROMPT=0 \
+  ANGEL_FIRST_WRITE_CALLS=20 \
+  ANGEL_FIRST_WRITE_REJECTIONS=6 \
+  ANGEL_FINAL_MILE_HOPS=6 \
+  ANGEL_MUTATION_THRASH_NUDGE=3 \
+  ANGEL_MUTATION_THRASH_STOP=6 \
+  ANGEL_PERIPHERAL_MUTATION_NUDGE=4 \
+  ANGEL_SELF_AUTHORED_VERIFY_GUARD=1 \
+  ANGEL_POST_GREEN_TOOL_BATCHES=1 \
+  ANGEL_NO_EDIT_ANSWER_GUARD=1 \
+  ANGEL_TASK_CODING_DISCIPLINE=1 \
+  ANGEL_TASK_RECON=repo \
+  ANGEL_TASK_RECON_MAX_CALLS=24 \
+  ANGEL_TOOL_SCHEMA_PROFILE=essential \
+  ANGEL_PROJECT_DOC=0 \
+  ANGEL_ALLOW_SOTA_DELEGATE=0 \
+  ANGEL_EVALUATE_MAX_HOPS_WORKSPACE=1 \
+  ANGEL_TASK_STRICT_EXIT=0 \
+  ANGEL_TASK_WALL_SECS="${BENCH_WALL_SECS:-600}" \
+  ANGEL_HTTP_RETRIES=1 \
+  RUST_LOG=warn
+
+# The model seat. Every seat points at the kit's proxy; the key here is the
+# proxy's placeholder, and the proxy holds the real one.
+case "${BENCH_PROVIDER:?config must set provider}" in
+  deepseek)
+    export ANGEL_DRIVER=deepseek ANGEL_API_CLUBS=deepseek \
+      ANGEL_DEEPSEEK_URL="$BENCH_BASE_URL" ANGEL_DEEPSEEK_KEY="$BENCH_API_KEY" DEEPSEEK_API_KEY="$BENCH_API_KEY" \
+      ANGEL_DEEPSEEK_MODEL="$BENCH_MODEL" ANGEL_DEEPSEEK_FLASH_MODEL="$BENCH_MODEL" \
+      ANGEL_DEEPSEEK_MAX_TOKENS="$MAX_TOKENS" ANGEL_DEEPSEEK_FLASH_MAX_TOKENS="$MAX_TOKENS" \
+      ANGEL_HTTP_TIMEOUT=120 ;;
+  grok)
+    export ANGEL_DRIVER=grok-api ANGEL_API_CLUBS=grok \
+      ANGEL_GROK_API_URL="$BENCH_BASE_URL" ANGEL_GROK_URL="$BENCH_BASE_URL" ANGEL_GROK_KEY="$BENCH_API_KEY" \
+      ANGEL_GROK_API_MODEL="$BENCH_MODEL" ANGEL_GROK_MODEL="$BENCH_MODEL" \
+      ANGEL_GROK_REASONING_EFFORT="${BENCH_EFFORT:-low}" ANGEL_GROK_MAX_TOKENS="$MAX_TOKENS" \
+      ANGEL_GROK_RESEARCH=0 ANGEL_SOTA_MOA_GROK_RESEARCH=0 \
+      ANGEL_STREAM_USAGE=1 ANGEL_GROK_STREAM_USAGE=1 ANGEL_GROK_API_STREAM_USAGE=1 \
+      ANGEL_HTTP_TIMEOUT=180 ;;
+  glm)
+    export ANGEL_DRIVER="$BENCH_MODEL" ANGEL_API_CLUBS=glm \
+      ANGEL_GLM_URL="$BENCH_BASE_URL" ANGEL_GLM_KEY="$BENCH_API_KEY" ANGEL_GLM_MODEL="$BENCH_MODEL" \
+      ANGEL_GLM_MAX_TOKENS="$MAX_TOKENS" ANGEL_HTTP_TIMEOUT=120 ;;
+  anthropic)
+    export ANGEL_DRIVER=anthropic ANGEL_API_CLUBS=anthropic \
+      ANGEL_ANTHROPIC_URL="$BENCH_BASE_URL" ANGEL_ANTHROPIC_KEY="$BENCH_API_KEY" ANGEL_ANTHROPIC_MODEL="$BENCH_MODEL" \
+      ANGEL_ANTHROPIC_MAX_TOKENS="$MAX_TOKENS" ANGEL_HTTP_TIMEOUT=300
+    [[ -n "${BENCH_EFFORT:-}" ]] && export ANGEL_ANTHROPIC_EFFORT="$BENCH_EFFORT" ;;
+  openai-compatible)
+    # Any OpenAI-compatible endpoint, through angelX's generic OpenRouter seat
+    # (it keeps an unknown model id as is).
+    export ANGEL_DRIVER=openrouter ANGEL_API_CLUBS=openrouter \
+      ANGEL_OPENROUTER_URL="$BENCH_BASE_URL" ANGEL_OPENROUTER_KEY="$BENCH_API_KEY" OPENROUTER_API_KEY="$BENCH_API_KEY" \
+      ANGEL_OPENROUTER_MODEL="$BENCH_MODEL" ANGEL_OPENROUTER_MAX_TOKENS="$MAX_TOKENS" ANGEL_HTTP_TIMEOUT=180 ;;
+  *) echo "angelx.sh: unknown provider $BENCH_PROVIDER" >&2; exit 2 ;;
+esac
+
+args=(--task-json --workspace "$PWD" --task-id "$BENCH_TASK" --run-id "$BENCH_RUN_ID")
+[[ -n "${BENCH_EFFORT:-}" ]] && args+=(--reasoning-effort "$BENCH_EFFORT")
+exec "$ANGEL_BIN" "${args[@]}" "$BENCH_PROMPT"

@@ -1,0 +1,21 @@
+{
+ "_comment": "DeepSeek V4.1 Flash, thinking off, from DeepSeek's own API. The sampling the published DeepSeek runs imposed on every harness. Prices: DeepSeek off-peak list price per 1M tokens on 2026-09-30 (peak is double).",
+ "provider": "deepseek",
+ "model": "deepseek-flash",
+ "effort": "none",
+ "upstream": "https://api.deepseek.com/v1",
+ "key_env": "DEEPSEEK_API_KEY",
+ "sampling": {
+  "temperature": 0.0,
+  "max_tokens": 8192,
+  "reasoning_effort": "none",
+  "thinking": {
+   "type": "disabled"
+  }
+ },
+ "prices": {
+  "input_uncached": 0.15,
+  "input_cached": 0.003,
+  "output": 0.6
+ }
+}

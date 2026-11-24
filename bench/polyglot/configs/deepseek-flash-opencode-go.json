@@ -1,0 +1,19 @@
+{
+ "_comment": "The same model and sampling through OpenCode Go. Go refuses a request without x-opencode-session; one fixed id for the whole run keeps it on one backend, so the provider's prompt cache holds. Without it every call misses the cache and runs slower.",
+ "provider": "deepseek",
+ "model": "deepseek-v4.1-flash",
+ "effort": "none",
+ "upstream": "https://opencode.ai/zen/go/v1",
+ "key_env": "OPENCODE_GO_API_KEY",
+ "headers": {
+  "x-opencode-session": "polyglot-bench-go"
+ },
+ "sampling": {
+  "temperature": 0.0,
+  "max_tokens": 8192,
+  "reasoning_effort": "none",
+  "thinking": {
+   "type": "disabled"
+  }
+ }
+}
